@@ -3,84 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SENTINEL ARENA: LEVEL 3</title>
+    <title>SENTINEL PRO: BROADCAST EDITION</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', sans-serif; }
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Arial Black', sans-serif; }
         #ui {
-            position: absolute; top: 20px; width: 100%; text-align: center;
-            color: #ff0000; text-shadow: 0 0 10px #ff0000; pointer-events: none;
+            position: absolute; top: 20px; left: 20px; color: #fff;
+            text-shadow: 2px 2px #ff0000; pointer-events: none;
         }
-        #scoreboard { font-size: 2rem; margin-top: 10px; }
-        #instructions {
-            position: absolute; bottom: 20px; width: 100%; text-align: center;
-            color: #ff0000; font-size: 1rem; text-shadow: 0 0 5px #ff0000;
-        }
+        #scoreboard { font-size: 2.5rem; border-left: 5px solid #ff0000; padding-left: 15px; }
         #msg {
-            position: absolute; top: 50%; width: 100%; text-align: center;
-            color: #fff; font-size: 4rem; display: none; text-shadow: 0 0 20px #ff0000;
+            position: absolute; top: 40%; width: 100%; text-align: center;
+            color: #fff; font-size: 5rem; display: none; text-shadow: 0 0 30px #ff0000;
+            font-style: italic; z-index: 10;
         }
     </style>
 </head>
 <body>
     <div id="ui">
-        <h1>SENTINEL ARENA</h1>
-        <div id="scoreboard">SCORE: <span id="points">0</span></div>
+        <div id="scoreboard">SENTINEL: <span id="points">0</span></div>
+        <div style="color: #ff0000; font-size: 0.8rem; margin-top: 5px;">LIVE BROADCAST | BOISBRIAND ARENA</div>
     </div>
-    <div id="msg">GOAL DETECTED</div>
-    <div id="instructions">WASD TO MOVE | SPACE TO FIRE</div>
+    <div id="msg">GOAL!</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000000, 0.02); // Add atmospheric fog
+
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        // Score tracking
         let score = 0;
 
-        // Lighting
-        scene.add(new THREE.AmbientLight(0x202020));
-        const spot = new THREE.SpotLight(0xff0000, 2);
-        spot.position.set(0, 20, 0);
-        scene.add(spot);
+        // --- ENHANCED LIGHTING ---
+        const ambient = new THREE.AmbientLight(0x404040, 1);
+        scene.add(ambient);
+        const sun = new THREE.DirectionalLight(0xff0000, 1);
+        sun.position.set(5, 10, 5);
+        scene.add(sun);
 
-        // Rink & Walls
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 40), new THREE.MeshStandardMaterial({ color: 0x0a0a0a }));
-        floor.rotation.x = -Math.PI / 2;
-        scene.add(floor);
-        floor.add(new THREE.GridHelper(40, 20, 0xff0000, 0x110000).rotateX(Math.PI/2));
+        // --- REFLECTIVE ICE ---
+        const iceGeo = new THREE.PlaneGeometry(30, 60);
+        const iceMat = new THREE.MeshStandardMaterial({ 
+            color: 0x111111, 
+            metalness: 0.8, 
+            roughness: 0.2 
+        });
+        const ice = new THREE.Mesh(iceGeo, iceMat);
+        ice.rotation.x = -Math.PI / 2;
+        scene.add(ice);
+        
+        // Neon Grid
+        const grid = new THREE.GridHelper(60, 30, 0xff0000, 0x220000);
+        grid.rotation.x = Math.PI / 2;
+        grid.position.z = 0.01;
+        ice.add(grid);
 
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x550000 });
-        const sideWallL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2, 40), wallMat);
-        sideWallL.position.set(-10, 1, 0);
-        scene.add(sideWallL);
-        const sideWallR = sideWallL.clone();
-        sideWallR.position.x = 10;
-        scene.add(sideWallR);
+        // --- PRO ARENA WALLS ---
+        const wallMat = new THREE.MeshPhongMaterial({ color: 0xff0000, emissive: 0x330000 });
+        const leftWall = new THREE.Mesh(new THREE.BoxGeometry(1, 4, 60), wallMat);
+        leftWall.position.set(-15, 2, 0);
+        scene.add(leftWall);
+        const rightWall = leftWall.clone();
+        rightWall.position.x = 15;
+        scene.add(rightWall);
 
-        // Goal
-        const goal = new THREE.Mesh(new THREE.BoxGeometry(7, 4, 1), new THREE.MeshStandardMaterial({ color: 0xff0000, wireframe: true }));
-        goal.position.set(0, 2, -19);
-        scene.add(goal);
-
-        // Player & Goalie
-        const player = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2, 1.2), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
-        player.position.set(0, 1, 15);
+        // --- PLAYERS ---
+        const player = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, 1.5, 4, 8), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+        player.position.set(0, 1.5, 20);
         scene.add(player);
 
-        const goalie = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.5, 1), new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff }));
-        goalie.position.set(0, 1.25, -17);
+        const goalie = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 1), new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff }));
+        goalie.position.set(0, 1.5, -25);
         scene.add(goalie);
 
-        const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.2, 32), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff }));
+        const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.3, 32), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff }));
         scene.add(puck);
 
-        camera.position.set(0, 12, 22);
-        camera.lookAt(0, 0, -5);
-
-        // Logic
+        // --- LOGIC & MOVEMENT ---
         const keys = {};
         window.onkeydown = (e) => keys[e.code] = true;
         window.onkeyup = (e) => keys[e.code] = false;
@@ -91,15 +94,19 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            // Movement with Boundary Checks
-            if ((keys['KeyW'] || keys['ArrowUp']) && player.position.z > -18) player.position.z -= 0.25;
-            if ((keys['KeyS'] || keys['ArrowDown']) && player.position.z < 18) player.position.z += 0.25;
-            if ((keys['KeyA'] || keys['ArrowLeft']) && player.position.x > -9) player.position.x -= 0.25;
-            if ((keys['KeyD'] || keys['ArrowRight']) && player.position.x < 9) player.position.x += 0.25;
+            // Smooth Player Movement
+            if ((keys['KeyW'] || keys['ArrowUp']) && player.position.z > -28) player.position.z -= 0.3;
+            if ((keys['KeyS'] || keys['ArrowDown']) && player.position.z < 28) player.position.z += 0.3;
+            if ((keys['KeyA'] || keys['ArrowLeft']) && player.position.x > -14) player.position.x -= 0.3;
+            if ((keys['KeyD'] || keys['ArrowRight']) && player.position.x < 14) player.position.x += 0.3;
 
-            // Goalie AI
-            goalie.position.x += 0.18 * gDir;
-            if (Math.abs(goalie.position.x) > 3.5) gDir *= -1;
+            // DYNAMIC CAMERA FOLLOW
+            camera.position.lerp(new THREE.Vector3(player.position.x, 15, player.position.z + 15), 0.1);
+            camera.lookAt(player.position.x, 0, player.position.z - 10);
+
+            // Pro Goalie AI (Moves faster)
+            goalie.position.x += 0.25 * gDir;
+            if (Math.abs(goalie.position.x) > 6) gDir *= -1;
 
             if (keys['Space'] && !isShooting) {
                 isShooting = true;
@@ -107,16 +114,12 @@
             }
 
             if (isShooting) {
-                puck.position.z -= 1.0;
-                
-                // Collision
-                if (puck.position.distanceTo(goalie.position) < 2) {
+                puck.position.z -= 1.2;
+                if (puck.position.distanceTo(goalie.position) < 2.5) {
                     isShooting = false;
                     puck.position.set(0, -10, 0);
                 }
-
-                // Goal Score
-                if (puck.position.z < -18.5 && Math.abs(puck.position.x) < 3.5) {
+                if (puck.position.z < -26 && Math.abs(puck.position.x) < 5) {
                     isShooting = false;
                     score++;
                     document.getElementById('points').innerText = score;
@@ -124,9 +127,9 @@
                     setTimeout(() => document.getElementById('msg').style.display = 'none', 1000);
                     puck.position.set(0, -10, 0);
                 }
-                if (puck.position.z < -25) isShooting = false;
+                if (puck.position.z < -35) isShooting = false;
             } else {
-                puck.position.set(player.position.x, 0.2, player.position.z - 1.2);
+                puck.position.set(player.position.x, 0.3, player.position.z - 1.5);
             }
 
             renderer.render(scene, camera);
