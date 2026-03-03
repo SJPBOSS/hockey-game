@@ -3,135 +3,147 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SENTINEL ARENA: ELITE PRO</title>
+    <title>SENTINEL ARENA: ULTRA GRAPHICS</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Arial Black', sans-serif; }
-        #ui { position: absolute; top: 20px; left: 20px; color: #fff; text-shadow: 2px 2px #ff0000; pointer-events: none; z-index: 10; }
-        #scoreboard { font-size: 2.5rem; border-left: 5px solid #ff0000; padding-left: 15px; }
-        #status { color: #ff0000; font-size: 1rem; margin-top: 10px; background: rgba(0,0,0,0.8); padding: 8px; border-radius: 5px; }
-        #msg { position: absolute; top: 40%; width: 100%; text-align: center; color: #fff; font-size: 6rem; display: none; text-shadow: 0 0 40px #ff0000; }
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #ui { position: absolute; top: 20px; left: 20px; color: #fff; pointer-events: none; z-index: 10; }
+        #scoreboard { font-size: 2rem; font-weight: 900; letter-spacing: 2px; border-left: 8px solid #ff0000; padding-left: 15px; }
+        #msg { position: absolute; top: 40%; width: 100%; text-align: center; color: #fff; font-size: 6rem; display: none; text-shadow: 0 0 50px #ff0000; font-weight: 900; }
     </style>
 </head>
 <body>
     <div id="ui">
-        <div id="scoreboard">SENTINEL: <span id="points">0</span></div>
-        <div id="status">WASD/ARROWS TO SKATE | SPACE TO SHOOT</div>
+        <div id="scoreboard">SENTINEL ARENA <br> <span style="color: #ff0000;">GOALS:</span> <span id="points">0</span></div>
     </div>
     <div id="msg">GOAL!</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        scene.background = new THREE.Color(0x020202);
+
+        // STABLE CAMERA setup
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.outputEncoding = THREE.sRGBEncoding;
         document.body.appendChild(renderer.domElement);
 
         let score = 0, hasPuck = false, isShooting = false;
         let pVelX = 0, pVelZ = 0;
-        let puckVX = 0, puckVZ = 0;
         const keys = {};
 
         window.onkeydown = (e) => keys[e.code] = true;
         window.onkeyup = (e) => keys[e.code] = false;
 
-        // Lighting & Atmosphere
-        scene.fog = new THREE.FogExp2(0x000000, 0.015);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-        const puckLight = new THREE.PointLight(0x00ffff, 2, 20); scene.add(puckLight);
+        // --- HIGH END LIGHTING ---
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+        scene.add(hemiLight);
+        const spotLight = new THREE.SpotLight(0xff0000, 2);
+        spotLight.position.set(0, 50, 0);
+        spotLight.angle = Math.PI / 4;
+        scene.add(spotLight);
 
-        // --- THE ARENA ---
-        const ice = new THREE.Mesh(new THREE.PlaneGeometry(60, 120), new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.9, roughness: 0.05 }));
-        ice.rotation.x = -Math.PI/2; scene.add(ice);
-        
-        // Jumbotron
-        const jumbotron = new THREE.Mesh(new THREE.BoxGeometry(8, 6, 8), new THREE.MeshStandardMaterial({ color: 0xff0000, wireframe: true }));
-        jumbotron.position.set(0, 20, 0); scene.add(jumbotron);
+        // --- PRO ICE ---
+        const iceGeo = new THREE.PlaneGeometry(60, 120);
+        const iceMat = new THREE.MeshStandardMaterial({ 
+            color: 0x111111, 
+            metalness: 0.9, 
+            roughness: 0.1,
+            envMapIntensity: 1
+        });
+        const ice = new THREE.Mesh(iceGeo, iceMat);
+        ice.rotation.x = -Math.PI/2;
+        scene.add(ice);
 
-        // Sideboards & Glass
-        const boardMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-        const leftWall = new THREE.Mesh(new THREE.BoxGeometry(1, 3, 120), boardMat); leftWall.position.set(-30, 1.5, 0); scene.add(leftWall);
-        const rightWall = leftWall.clone(); rightWall.position.x = 30; scene.add(rightWall);
-        const glass = new THREE.Mesh(new THREE.BoxGeometry(1, 6, 120), new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.1 }));
-        glass.position.set(-30, 6, 0); scene.add(glass);
+        // Rink Markings
+        const grid = new THREE.GridHelper(120, 40, 0x440000, 0x111111);
+        grid.rotation.x = Math.PI/2;
+        grid.position.z = 0.01;
+        ice.add(grid);
 
-        // --- PLAYER WITH STICK ---
-        function createPlayer(col) {
+        // --- BOARDS & GLASS ---
+        const boardMat = new THREE.MeshPhongMaterial({ color: 0xeeeeee });
+        const leftBoard = new THREE.Mesh(new THREE.BoxGeometry(1, 4, 120), boardMat);
+        leftBoard.position.set(-30, 2, 0);
+        scene.add(leftBoard);
+        const rightBoard = leftBoard.clone();
+        rightBoard.position.x = 30;
+        scene.add(rightBoard);
+
+        // --- PLAYER WITH BETTER GEOMETRY ---
+        function createProPlayer(color) {
             const group = new THREE.Group();
-            const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.5, 1), new THREE.MeshStandardMaterial({ color: col }));
-            body.position.y = 1.25; group.add(body);
-            const stick = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4, 0.2), new THREE.MeshStandardMaterial({ color: 0x888888 }));
-            stick.position.set(1.2, 0.5, -1.5); stick.rotation.x = Math.PI/3; group.add(stick);
-            const blade = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.2, 0.5), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-            blade.position.set(1.2, -0.8, -2.8); group.add(blade);
+            const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, 1.5, 4, 8), new THREE.MeshStandardMaterial({ color }));
+            torso.position.y = 1.5;
+            group.add(torso);
+            // Stick
+            const stick = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4, 0.2), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+            stick.position.set(1.2, 0.8, -1);
+            stick.rotation.x = Math.PI/4;
+            group.add(stick);
             return group;
         }
 
-        const player = createPlayer(0xff0000); scene.add(player);
-        const goalie = new THREE.Mesh(new THREE.BoxGeometry(5, 3.5, 1.5), new THREE.MeshStandardMaterial({ color: 0x00ffff }));
-        goalie.position.set(0, 1.75, -55); scene.add(goalie);
+        const player = createProPlayer(0xff0000);
+        scene.add(player);
 
-        const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.3, 32), new THREE.MeshStandardMaterial({ color: 0xffffff }));
-        puck.position.set(0, 0.3, 0); scene.add(puck);
+        const goalie = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 2), new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x003333 }));
+        goalie.position.set(0, 2, -55);
+        scene.add(goalie);
+
+        const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.3, 32), new THREE.MeshPhongMaterial({ color: 0x111111 }));
+        puck.position.set(0, 0.15, 0);
+        scene.add(puck);
 
         function resetPuck() {
             hasPuck = false; isShooting = false;
-            puck.position.set(0, 15, 0); puckVX = 0; puckVZ = 0;
+            puck.position.set(0, 0.15, 0);
             player.position.set(0, 0, 40);
+            pVelX = 0; pVelZ = 0;
         }
-        resetPuck();
 
         function animate() {
             requestAnimationFrame(animate);
             
-            // SMOOTH SKATING
-            const accel = 0.06, friction = 0.95;
+            // SKATING PHYSICS
+            const accel = 0.05, friction = 0.96;
             if(keys['KeyW'] || keys['ArrowUp']) pVelZ -= accel;
             if(keys['KeyS'] || keys['ArrowDown']) pVelZ += accel;
             if(keys['KeyA'] || keys['ArrowLeft']) pVelX -= accel;
             if(keys['KeyD'] || keys['ArrowRight']) pVelX += accel;
             
             pVelX *= friction; pVelZ *= friction;
-            player.position.x += pVelX; player.position.z += pVelZ;
-            
-            // Leaning Physics
-            player.rotation.z = -pVelX * 0.5;
-            player.rotation.x = pVelZ * 0.2;
+            player.position.x += pVelX;
+            player.position.z += pVelZ;
 
-            // Boundaries
-            if(Math.abs(player.position.x) > 28) { player.position.x = Math.sign(player.position.x)*28; pVelX *= -0.5; }
-            if(Math.abs(player.position.z) > 58) { player.position.z = Math.sign(player.position.z)*58; pVelZ *= -0.5; }
-
-            // Smooth Follow Cam
-            camera.position.lerp(new THREE.Vector3(player.position.x, 28, player.position.z + 35), 0.08);
-            camera.lookAt(player.position.x, 0, player.position.z - 15);
+            // STABLE CAMERA: Fixed offset with minimal lerping to prevent sickness
+            const targetCamPos = new THREE.Vector3(player.position.x, 35, player.position.z + 40);
+            camera.position.lerp(targetCamPos, 0.1); 
+            camera.lookAt(player.position.x, 0, player.position.z - 10);
 
             // Goalie AI
-            let gTarget = isShooting ? puck.position.x : player.position.x;
-            goalie.position.x = THREE.MathUtils.lerp(goalie.position.x, THREE.MathUtils.clamp(gTarget, -8, 8), 0.1);
+            goalie.position.x = THREE.MathUtils.lerp(goalie.position.x, THREE.MathUtils.clamp(puck.position.x, -8, 8), 0.1);
 
-            // Puck Light
-            puckLight.position.set(puck.position.x, 2, puck.position.z);
-            jumbotron.rotation.y += 0.01;
-
-            if(puck.position.y > 0.3) puck.position.y -= 0.2;
             if(!hasPuck && !isShooting && player.position.distanceTo(puck.position) < 4) hasPuck = true;
 
-            if(keys['Space'] && hasPuck) { hasPuck = false; isShooting = true; puckVZ = -2.8; puckVX = pVelX; }
+            if(keys['Space'] && hasPuck) { hasPuck = false; isShooting = true; }
 
             if(isShooting) {
-                puck.position.z += puckVZ; puck.position.x += puckVX;
+                puck.position.z -= 3;
                 if(puck.position.distanceTo(goalie.position) < 5) resetPuck();
                 if(puck.position.z < -55 && Math.abs(puck.position.x) < 8) {
                     score++; document.getElementById('points').innerText = score;
                     document.getElementById('msg').style.display = 'block';
-                    setTimeout(() => { document.getElementById('msg').style.display = 'none'; resetPuck(); }, 1000);
+                    setTimeout(() => { document.getElementById('msg').style.display = 'none'; resetPuck(); }, 1500);
                     isShooting = false;
                 }
-                if(puck.position.z < -70 || puck.position.z > 70) resetPuck();
+                if(puck.position.z < -80) resetPuck();
             } else if (hasPuck) {
-                puck.position.set(player.position.x, 0.3, player.position.z - 3.5);
+                puck.position.set(player.position.x, 0.15, player.position.z - 3);
             }
+
             renderer.render(scene, camera);
         }
         animate();
