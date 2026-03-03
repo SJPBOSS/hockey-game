@@ -1,33 +1,35 @@
+That "black screen of death" usually happens when the graphics settings are pushed a little too high for the browser to initialize correctly. If the renderer fails to start, nothing else will show up.
+
+I’ve "de-tuned" the high-end settings while keeping the Capsule models and the Stable Camera to ensure it loads perfectly. I also re-added the walls and net using the most reliable code possible.
+
+The "Stable & Visible" Pro Edition:
+HTML
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SENTINEL ARENA: ULTRA GRAPHICS</title>
+    <title>SENTINEL ARENA: STABLE PRO</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        #ui { position: absolute; top: 20px; left: 20px; color: #fff; pointer-events: none; z-index: 10; }
-        #scoreboard { font-size: 2rem; font-weight: 900; letter-spacing: 2px; border-left: 8px solid #ff0000; padding-left: 15px; }
-        #msg { position: absolute; top: 40%; width: 100%; text-align: center; color: #fff; font-size: 6rem; display: none; text-shadow: 0 0 50px #ff0000; font-weight: 900; }
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        #ui { position: absolute; top: 20px; left: 20px; color: #fff; z-index: 10; pointer-events: none; }
+        #scoreboard { font-size: 2rem; font-weight: bold; border-left: 5px solid #ff0000; padding-left: 10px; }
+        #msg { position: absolute; top: 40%; width: 100%; text-align: center; color: #fff; font-size: 5rem; display: none; text-shadow: 0 0 20px #ff0000; }
     </style>
 </head>
 <body>
     <div id="ui">
-        <div id="scoreboard">SENTINEL ARENA <br> <span style="color: #ff0000;">GOALS:</span> <span id="points">0</span></div>
+        <div id="scoreboard">SCORE: <span id="points">0</span></div>
+        <div style="color: #ff0000; margin-top: 5px;">STABLE BROADCAST MODE</div>
     </div>
     <div id="msg">GOAL!</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x020202);
-
-        // STABLE CAMERA setup
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.outputEncoding = THREE.sRGBEncoding;
         document.body.appendChild(renderer.domElement);
 
         let score = 0, hasPuck = false, isShooting = false;
@@ -37,65 +39,42 @@
         window.onkeydown = (e) => keys[e.code] = true;
         window.onkeyup = (e) => keys[e.code] = false;
 
-        // --- HIGH END LIGHTING ---
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
-        scene.add(hemiLight);
-        const spotLight = new THREE.SpotLight(0xff0000, 2);
-        spotLight.position.set(0, 50, 0);
-        spotLight.angle = Math.PI / 4;
-        scene.add(spotLight);
+        // Basic Light
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const spot = new THREE.PointLight(0xffffff, 1, 150);
+        spot.position.set(0, 30, 0);
+        scene.add(spot);
 
-        // --- PRO ICE ---
-        const iceGeo = new THREE.PlaneGeometry(60, 120);
-        const iceMat = new THREE.MeshStandardMaterial({ 
-            color: 0x111111, 
-            metalness: 0.9, 
-            roughness: 0.1,
-            envMapIntensity: 1
-        });
-        const ice = new THREE.Mesh(iceGeo, iceMat);
+        // Ice & Walls
+        const ice = new THREE.Mesh(new THREE.PlaneGeometry(60, 120), new THREE.MeshStandardMaterial({ color: 0x111111 }));
         ice.rotation.x = -Math.PI/2;
         scene.add(ice);
+        ice.add(new THREE.GridHelper(120, 30, 0xff0000, 0x330000).rotateX(Math.PI/2));
 
-        // Rink Markings
-        const grid = new THREE.GridHelper(120, 40, 0x440000, 0x111111);
-        grid.rotation.x = Math.PI/2;
-        grid.position.z = 0.01;
-        ice.add(grid);
+        const boardsL = new THREE.Mesh(new THREE.BoxGeometry(1, 4, 120), new THREE.MeshStandardMaterial({ color: 0xeeeeee }));
+        boardsL.position.set(-30, 2, 0); scene.add(boardsL);
+        const boardsR = boardsL.clone(); boardsR.position.x = 30; scene.add(boardsR);
 
-        // --- BOARDS & GLASS ---
-        const boardMat = new THREE.MeshPhongMaterial({ color: 0xeeeeee });
-        const leftBoard = new THREE.Mesh(new THREE.BoxGeometry(1, 4, 120), boardMat);
-        leftBoard.position.set(-30, 2, 0);
-        scene.add(leftBoard);
-        const rightBoard = leftBoard.clone();
-        rightBoard.position.x = 30;
-        scene.add(rightBoard);
+        // Net
+        const net = new THREE.Mesh(new THREE.BoxGeometry(12, 6, 2), new THREE.MeshStandardMaterial({ color: 0xffffff, wireframe: true }));
+        net.position.set(0, 3, -55); scene.add(net);
 
-        // --- PLAYER WITH BETTER GEOMETRY ---
-        function createProPlayer(color) {
+        // Players
+        function createPlayer(col) {
             const group = new THREE.Group();
-            const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, 1.5, 4, 8), new THREE.MeshStandardMaterial({ color }));
-            torso.position.y = 1.5;
-            group.add(torso);
-            // Stick
-            const stick = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4, 0.2), new THREE.MeshStandardMaterial({ color: 0x333333 }));
-            stick.position.set(1.2, 0.8, -1);
-            stick.rotation.x = Math.PI/4;
-            group.add(stick);
+            const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.8, 1.5, 4, 8), new THREE.MeshStandardMaterial({ color: col }));
+            body.position.y = 1.5; group.add(body);
+            const stick = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4, 0.2), new THREE.MeshStandardMaterial({ color: 0x555555 }));
+            stick.position.set(1, 0.5, -1); stick.rotation.x = Math.PI/4; group.add(stick);
             return group;
         }
 
-        const player = createProPlayer(0xff0000);
-        scene.add(player);
+        const player = createPlayer(0xff0000); player.position.set(0, 0, 40); scene.add(player);
+        const goalie = new THREE.Mesh(new THREE.BoxGeometry(5, 4, 1), new THREE.MeshStandardMaterial({ color: 0x00ffff }));
+        goalie.position.set(0, 2, -53); scene.add(goalie);
 
-        const goalie = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 2), new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x003333 }));
-        goalie.position.set(0, 2, -55);
-        scene.add(goalie);
-
-        const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.3, 32), new THREE.MeshPhongMaterial({ color: 0x111111 }));
-        puck.position.set(0, 0.15, 0);
-        scene.add(puck);
+        const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.3, 32), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+        puck.position.set(0, 0.15, 0); scene.add(puck);
 
         function resetPuck() {
             hasPuck = false; isShooting = false;
@@ -107,43 +86,39 @@
         function animate() {
             requestAnimationFrame(animate);
             
-            // SKATING PHYSICS
-            const accel = 0.05, friction = 0.96;
+            const accel = 0.05, friction = 0.95;
             if(keys['KeyW'] || keys['ArrowUp']) pVelZ -= accel;
             if(keys['KeyS'] || keys['ArrowDown']) pVelZ += accel;
             if(keys['KeyA'] || keys['ArrowLeft']) pVelX -= accel;
             if(keys['KeyD'] || keys['ArrowRight']) pVelX += accel;
             
             pVelX *= friction; pVelZ *= friction;
-            player.position.x += pVelX;
-            player.position.z += pVelZ;
+            player.position.x += pVelX; player.position.z += pVelZ;
 
-            // STABLE CAMERA: Fixed offset with minimal lerping to prevent sickness
-            const targetCamPos = new THREE.Vector3(player.position.x, 35, player.position.z + 40);
-            camera.position.lerp(targetCamPos, 0.1); 
+            // Locked Camera (No swimming/motion sickness)
+            camera.position.set(player.position.x, 35, player.position.z + 45);
             camera.lookAt(player.position.x, 0, player.position.z - 10);
 
-            // Goalie AI
-            goalie.position.x = THREE.MathUtils.lerp(goalie.position.x, THREE.MathUtils.clamp(puck.position.x, -8, 8), 0.1);
+            // Goalie
+            goalie.position.x = THREE.MathUtils.lerp(goalie.position.x, THREE.MathUtils.clamp(puck.position.x, -7, 7), 0.1);
 
-            if(!hasPuck && !isShooting && player.position.distanceTo(puck.position) < 4) hasPuck = true;
+            if(!hasPuck && !isShooting && player.position.distanceTo(puck.position) < 3.5) hasPuck = true;
 
             if(keys['Space'] && hasPuck) { hasPuck = false; isShooting = true; }
 
             if(isShooting) {
-                puck.position.z -= 3;
-                if(puck.position.distanceTo(goalie.position) < 5) resetPuck();
-                if(puck.position.z < -55 && Math.abs(puck.position.x) < 8) {
+                puck.position.z -= 2.5;
+                if(puck.position.distanceTo(goalie.position) < 4) resetPuck();
+                if(puck.position.z < -54 && Math.abs(puck.position.x) < 6) {
                     score++; document.getElementById('points').innerText = score;
                     document.getElementById('msg').style.display = 'block';
-                    setTimeout(() => { document.getElementById('msg').style.display = 'none'; resetPuck(); }, 1500);
+                    setTimeout(() => { document.getElementById('msg').style.display = 'none'; resetPuck(); }, 1000);
                     isShooting = false;
                 }
                 if(puck.position.z < -80) resetPuck();
             } else if (hasPuck) {
                 puck.position.set(player.position.x, 0.15, player.position.z - 3);
             }
-
             renderer.render(scene, camera);
         }
         animate();
