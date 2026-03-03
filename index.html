@@ -3,92 +3,76 @@
 <head>
     <title>Sentinel Slapshot Ultra</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-        #ui { position: absolute; top: 20px; left: 20px; color: #0ff; font-size: 20px; text-shadow: 0 0 10px #0ff; }
+        body { margin: 0; overflow: hidden; background: #000; }
+        #ui { position: absolute; top: 10px; left: 10px; color: #0ff; font-family: monospace; z-index: 10; }
     </style>
 </head>
 <body>
-    <div id="ui">SCORE: <span id="score">0</span></div>
+    <div id="ui">SYSTEM ACTIVE: WASD TO MOVE</div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // --- GAME CONFIG ---
-        let score = 0;
-        const PUCK_FRICTION = 0.985;
-        const AI_SPEED = 0.09;
-
-        // --- SCENE SETUP ---
+        // --- 1. SCENE SETUP ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050505);
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 15, 12);
+        scene.background = new THREE.Color(0x020202); // Dark grey so we know it's working
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 12, 12);
         camera.lookAt(0, 0, 0);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // --- LIGHTING ---
-        const light = new THREE.PointLight(0x00ffff, 1.5, 50);
-        light.position.set(0, 10, 0);
-        scene.add(light, new THREE.AmbientLight(0xffffff, 0.3));
+        // --- 2. LIGHTING (The "Nothing" Fix) ---
+        // If you see nothing, it's often because the lights are missing.
+        const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambient);
+        const sun = new THREE.DirectionalLight(0x00ffff, 1);
+        sun.position.set(5, 10, 5);
+        scene.add(sun);
 
-        // --- OBJECTS ---
-        const rink = new THREE.Mesh(new THREE.PlaneGeometry(20, 30), new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.1 }));
-        rink.rotation.x = -Math.PI / 2;
-        scene.add(rink);
+        // --- 3. OBJECTS ---
+        // Rink
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 30), new THREE.MeshStandardMaterial({ color: 0x444444 }));
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
 
-        const player = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1, 4, 8), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
-        player.position.set(0, 0.75, 8);
+        // Player
+        const player = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+        player.position.y = 0.5;
         scene.add(player);
 
-        const ai = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1, 4, 8), new THREE.MeshStandardMaterial({ color: 0x0000ff }));
-        ai.position.set(0, 0.75, -8);
-        scene.add(ai);
-
-        const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-        puck.position.set(0, 0.1, 0);
-        let puckVel = new THREE.Vector3(0, 0, 0);
+        // Puck
+        const puck = new THREE.Mesh(new THREE.SphereGeometry(0.3), new THREE.MeshStandardMaterial({ color: 0xffff00 }));
+        puck.position.set(0, 0.3, 0);
         scene.add(puck);
 
-        // --- INPUTS ---
+        // --- 4. CONTROLS ---
         const keys = {};
-        window.onkeydown = (e) => keys[e.key] = true;
-        window.onkeyup = (e) => keys[e.key] = false;
+        window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
 
-        // --- GAME LOOP ---
+        // --- 5. ANIMATION LOOP ---
         function animate() {
             requestAnimationFrame(animate);
-
-            // Player Movement
-            if (keys['ArrowUp'] || keys['w']) player.position.z -= 0.15;
-            if (keys['ArrowDown'] || keys['s']) player.position.z += 0.15;
-            if (keys['ArrowLeft'] || keys['a']) player.position.x -= 0.15;
-            if (keys['ArrowRight'] || keys['d']) player.position.x += 0.15;
-
-            // ULTRA AI: Intercept & Steal
-            let target = puck.position.clone();
-            if (puckVel.length() > 0.05) {
-                target.add(puckVel.clone().multiplyScalar(15)); // Intercept logic
-            }
-            const aiDir = new THREE.Vector3().subVectors(target, ai.position).normalize();
-            ai.position.x += aiDir.x * AI_SPEED;
-            ai.position.z += aiDir.z * AI_SPEED;
-
-            // Steal Logic
-            if (ai.position.distanceTo(puck.position) < 1.2 && player.position.distanceTo(puck.position) < 1.5) {
-                puckVel.set(aiDir.x * 0.5, 0, aiDir.z * 0.5); // AI pokes it away
-            }
-
-            // Puck Physics
-            if (player.position.distanceTo(puck.position) < 1) {
-                puckVel.set((puck.position.x - player.position.x) * 0.5, 0, (puck.position.z - player.position.z) * 0.5);
-            }
-            puck.position.add(puckVel);
-            puckVel.multiplyScalar(PUCK_FRICTION);
+            
+            if(keys['w']) player.position.z -= 0.1;
+            if(keys['s']) player.position.z += 0.1;
+            if(keys['a']) player.position.x -= 0.1;
+            if(keys['d']) player.position.x += 0.1;
 
             renderer.render(scene, camera);
         }
+
+        // Handle window resizing (Crucial for Vercel/Mobile)
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
         animate();
+        console.log("Ultra Scene Initialized");
     </script>
 </body>
 </html>
