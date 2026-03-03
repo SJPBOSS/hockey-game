@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SENTINEL SLAPSHOT</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
+        #ui {
+            position: absolute; top: 20px; width: 100%; text-align: center;
+            color: #ff0000; text-shadow: 0 0 10px #ff0000; pointer-events: none;
+        }
+        #instructions {
+            position: absolute; bottom: 20px; width: 100%; text-align: center;
+            color: #ff0000; font-size: 1.2rem; text-shadow: 0 0 5px #ff0000;
+        }
+        #msg {
+            position: absolute; top: 50%; width: 100%; text-align: center;
+            color: #fff; font-size: 3rem; font-weight: bold; display: none;
+            text-shadow: 0 0 20px #ff0000;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <h1>SENTINEL SLAPSHOT</h1>
+        <div id="score">STATUS: READY</div>
+    </div>
+    <div id="msg">THREAT NEUTRALIZED!</div>
+    <div id="instructions">CLICK OR TAP TO FIRE THE SENTINEL CORE</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // --- SCENE SETUP ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // --- LIGHTING ---
+        const ambientLight = new THREE.AmbientLight(0x404040, 2);
+        scene.add(ambientLight);
+        const pointLight = new THREE.PointLight(0xff0000, 2, 50);
+        pointLight.position.set(0, 5, 5);
+        scene.add(pointLight);
+
+        // --- RINK / FLOOR ---
+        const floorGeo = new THREE.PlaneGeometry(20, 40);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
+
+        // Grid lines for futuristic feel
+        const grid = new THREE.GridHelper(40, 20, 0xff0000, 0x220000);
+        grid.rotation.x = Math.PI / 2;
+        floor.add(grid);
+
+        // --- THE GOAL ---
+        const goalGeo = new THREE.BoxGeometry(6, 4, 1);
+        const goalMat = new THREE.MeshStandardMaterial({ color: 0xff0000, wireframe: true });
+        const goal = new THREE.Mesh(goalGeo, goalMat);
+        goal.position.set(0, 2, -18);
+        scene.add(goal);
+
+        // --- THE PUCK (SENTINEL CORE) ---
+        const puckGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.2, 32);
+        const puckMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000 });
+        const puck = new THREE.Mesh(puckGeo, puckMat);
+        puck.position.set(0, 0.1, 10);
+        scene.add(puck);
+
+        camera.position.set(0, 5, 18);
+        camera.lookAt(0, 0, -5);
+
+        // --- GAME LOGIC ---
+        let isMoving = false;
+        let speed = 0.6;
+
+        window.addEventListener('mousedown', () => {
+            if (!isMoving) isMoving = true;
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (isMoving) {
+                puck.position.z -= speed;
+                
+                // Check for Goal
+                if (puck.position.z < -17.5 && Math.abs(puck.position.x) < 3) {
+                    document.getElementById('msg').style.display = 'block';
+                    document.getElementById('score').innerText = 'GOAL DETECTED';
+                    isMoving = false;
+                    setTimeout(() => {
+                        puck.position.set(0, 0.1, 10);
+                        document.getElementById('msg').style.display = 'none';
+                        document.getElementById('score').innerText = 'STATUS: READY';
+                    }, 2000);
+                }
+                
+                // Reset if miss
+                if (puck.position.z < -25) {
+                    puck.position.set(0, 0.1, 10);
+                    isMoving = false;
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
