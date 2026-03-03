@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SENTINEL ARENA: BATTLE EDITION</title>
+    <title>SENTINEL ARENA: BATTLE FIXED</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Arial Black', sans-serif; }
         #ui { position: absolute; top: 20px; left: 20px; color: #fff; text-shadow: 2px 2px #ff0000; pointer-events: none; z-index: 10; }
-        #scoreboard { font-size: 2rem; border-left: 5px solid #ff0000; padding-left: 15px; }
+        #scoreboard { font-size: 2.5rem; border-left: 5px solid #ff0000; padding-left: 15px; }
+        #status { color: #ff0000; font-size: 1.2rem; margin-top: 10px; background: rgba(0,0,0,0.5); padding: 5px; }
         #msg { position: absolute; top: 40%; width: 100%; text-align: center; color: #fff; font-size: 5rem; display: none; text-shadow: 0 0 30px #ff0000; }
-        #status { color: #ff0000; font-size: 1rem; margin-top: 5px; }
     </style>
 </head>
 <body>
     <div id="ui">
         <div id="scoreboard">SCORE: <span id="points">0</span></div>
-        <div id="status">GET THE PUCK IN THE CENTER!</div>
+        <div id="status">GO TO THE CENTER FOR THE PUCK!</div>
     </div>
     <div id="msg">GOAL!</div>
 
@@ -34,34 +34,36 @@
         window.onkeydown = (e) => keys[e.code] = true;
         window.onkeyup = (e) => keys[e.code] = false;
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
         const stadiumLight = new THREE.PointLight(0xff0000, 2, 100);
         stadiumLight.position.set(0, 20, 0);
         scene.add(stadiumLight);
 
         // Ice
-        const ice = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x050505, metalness: 0.9, roughness: 0.05 }));
+        const ice = new THREE.Mesh(new THREE.PlaneGeometry(35, 70), new THREE.MeshStandardMaterial({ color: 0x050505, metalness: 0.9, roughness: 0.1 }));
         ice.rotation.x = -Math.PI / 2;
         scene.add(ice);
-        ice.add(new THREE.GridHelper(60, 30, 0xff0000, 0x220000).rotateX(Math.PI/2));
+        ice.add(new THREE.GridHelper(70, 35, 0xff0000, 0x220000).rotateX(Math.PI/2));
+
+        // Center Circle
+        const circle = new THREE.Mesh(new THREE.RingGeometry(4.8, 5, 32), new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide }));
+        circle.rotation.x = -Math.PI/2;
+        circle.position.y = 0.02;
+        scene.add(circle);
 
         // Net
         const goalFrame = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 2), new THREE.MeshStandardMaterial({ color: 0xff0000, wireframe: true }));
-        goalFrame.position.set(0, 2.5, -28);
+        goalFrame.position.set(0, 2.5, -30);
         scene.add(goalFrame);
 
-        // Player & Goalie
         function createPlayer(color) {
             const group = new THREE.Group();
-            const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.5, 0.8), new THREE.MeshStandardMaterial({ color }));
-            body.position.y = 1.25;
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2, 0.8), new THREE.MeshStandardMaterial({ color }));
+            body.position.y = 1;
             group.add(body);
-            const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), new THREE.MeshStandardMaterial({ color: 0xcccccc }));
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0xdddddd }));
             head.position.y = 2.4;
             group.add(head);
-            const stick = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3, 0.2), new THREE.MeshStandardMaterial({ color: 0x555555 }));
-            stick.position.set(0.8, 1, -0.5); stick.rotation.x = Math.PI/4;
-            group.add(stick);
             return group;
         }
 
@@ -70,66 +72,68 @@
         scene.add(player);
 
         const goalie = createPlayer(0x00ffff);
-        goalie.scale.set(1.5, 1.2, 1);
-        goalie.position.set(0, 0, -26);
+        goalie.scale.set(1.8, 1.2, 1);
+        goalie.position.set(0, 0, -28);
         scene.add(goalie);
 
-        // Drones
         const drones = [];
-        for(let i=0; i<3; i++) {
-            const drone = new THREE.Mesh(new THREE.SphereGeometry(0.8), new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x330000 }));
-            drone.position.set((i-1)*8, 1.5, -5);
+        for(let i=0; i<2; i++) {
+            const drone = new THREE.Mesh(new THREE.OctahedronGeometry(1), new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000 }));
+            drone.position.set(i === 0 ? -8 : 8, 2, 0);
             scene.add(drone);
-            drones.push({ mesh: drone, dir: (i % 2 === 0 ? 1 : -1) });
+            drones.push({ mesh: drone, dir: (i === 0 ? 1 : -1) });
         }
 
-        const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.3, 32), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xaaaaaa }));
-        puck.position.set(0, 0.3, 0); // Drop at center
+        const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.4, 32), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x666666 }));
         scene.add(puck);
-
-        let gDir = 1;
 
         function resetPuck() {
             hasPuck = false;
             isShooting = false;
-            puck.position.set(0, 10, 0); // Drop from sky
-            document.getElementById('status').innerText = 'PUCK DROPPED - FACE OFF!';
+            puck.position.set(0, 20, 0); // High drop
+            document.getElementById('status').innerText = 'PUCK DROPPING...';
         }
+
+        resetPuck();
 
         function animate() {
             requestAnimationFrame(animate);
 
             // Movement
-            if ((keys['KeyW'] || keys['ArrowUp']) && player.position.z > -28) player.position.z -= 0.35;
-            if ((keys['KeyS'] || keys['ArrowDown']) && player.position.z < 28) player.position.z += 0.35;
-            if ((keys['KeyA'] || keys['ArrowLeft']) && player.position.x > -14) player.position.x -= 0.35;
-            if ((keys['KeyD'] || keys['ArrowRight']) && player.position.x < 14) player.position.x += 0.35;
+            const speed = 0.4;
+            if ((keys['KeyW'] || keys['ArrowUp']) && player.position.z > -33) player.position.z -= speed;
+            if ((keys['KeyS'] || keys['ArrowDown']) && player.position.z < 33) player.position.z += speed;
+            if ((keys['KeyA'] || keys['ArrowLeft']) && player.position.x > -16) player.position.x -= speed;
+            if ((keys['KeyD'] || keys['ArrowRight']) && player.position.x < 16) player.position.x += speed;
 
-            // Camera
-            camera.position.lerp(new THREE.Vector3(player.position.x, 15, player.position.z + 18), 0.1);
-            camera.lookAt(player.position.x, 0, player.position.z - 10);
+            camera.position.lerp(new THREE.Vector3(player.position.x, 18, player.position.z + 20), 0.1);
+            camera.lookAt(player.position.x, 0, player.position.z - 5);
 
-            // Goalie Tracking
-            const targetX = isShooting ? puck.position.x : player.position.x;
-            goalie.position.x = THREE.MathUtils.lerp(goalie.position.x, THREE.MathUtils.clamp(targetX, -4, 4), 0.1);
+            // Goalie follow logic
+            let goalieTarget = isShooting ? puck.position.x : player.position.x;
+            goalie.position.x = THREE.MathUtils.lerp(goalie.position.x, THREE.MathUtils.clamp(goalieTarget, -4, 4), 0.1);
 
-            // Drones
-            drones.forEach((d) => {
-                d.mesh.position.x += 0.15 * d.dir;
-                if(Math.abs(d.mesh.position.x) > 13) d.dir *= -1;
-                // Steal Puck / Reset
-                if(player.position.distanceTo(d.mesh.position) < 2) {
-                    resetPuck();
+            // Drone Battle logic
+            drones.forEach(d => {
+                d.mesh.position.x += 0.2 * d.dir;
+                if(Math.abs(d.mesh.position.x) > 14) d.dir *= -1;
+                
+                // Steal check
+                if(player.position.distanceTo(d.mesh.position) < 2.5) {
+                    if(hasPuck) {
+                        resetPuck();
+                        document.getElementById('status').innerText = 'STOLEN BY SENTINEL!';
+                    }
                 }
             });
 
-            // Puck Gravity (for drops)
-            if (puck.position.y > 0.3) puck.position.y -= 0.2;
+            // Puck physics
+            if (puck.position.y > 0.3) puck.position.y -= 0.25;
 
-            // Possession logic
-            if(!hasPuck && !isShooting && player.position.distanceTo(puck.position) < 2) {
+            // Pick up check
+            if(!hasPuck && !isShooting && player.position.distanceTo(puck.position) < 2.5 && puck.position.y < 1) {
                 hasPuck = true;
-                document.getElementById('status').innerText = 'YOU HAVE THE PUCK - ATTACK!';
+                document.getElementById('status').innerText = 'YOU HAVE THE PUCK - SCORE!';
             }
 
             if (keys['Space'] && hasPuck) {
@@ -138,21 +142,22 @@
             }
 
             if (isShooting) {
-                puck.position.z -= 1.6;
-                if (puck.position.distanceTo(goalie.position) < 2.5) {
+                puck.position.z -= 1.8;
+                if (puck.position.distanceTo(goalie.position) < 3.2) {
                     resetPuck();
+                    document.getElementById('status').innerText = 'SAVED BY GOALIE!';
                 }
-                if (puck.position.z < -28 && Math.abs(puck.position.x) < 5) {
+                if (puck.position.z < -30 && Math.abs(puck.position.x) < 5) {
                     score++;
                     document.getElementById('points').innerText = score;
                     document.getElementById('msg').style.display = 'block';
-                    setTimeout(() => { document.getElementById('msg').style.display = 'none'; resetPuck(); }, 1000);
+                    setTimeout(() => { document.getElementById('msg').style.display = 'none'; resetPuck(); }, 1500);
                     isShooting = false;
-                    puck.position.y = -20; 
+                    puck.position.y = -50;
                 }
-                if (puck.position.z < -45) resetPuck();
+                if (puck.position.z < -50) resetPuck();
             } else if (hasPuck) {
-                puck.position.set(player.position.x, 0.3, player.position.z - 1.5);
+                puck.position.set(player.position.x, 0.3, player.position.z - 1.8);
             }
 
             renderer.render(scene, camera);
