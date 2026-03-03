@@ -1,120 +1,53 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Sentinel Slapshot: Ultra High-End</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel Slapshot: Ultra Fixed</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial', sans-serif; }
-        #ui { position: absolute; top: 20px; left: 20px; color: #fff; text-shadow: 0 0 10px #0ff; z-index: 10; font-weight: bold; }
-        #goal { position: absolute; width: 100%; top: 40%; text-align: center; color: #0ff; font-size: 5em; display: none; pointer-events: none; }
+        body { margin: 0; overflow: hidden; background: #010101; color: #0ff; font-family: monospace; }
+        #debug { position: absolute; top: 10px; left: 10px; z-index: 100; pointer-events: none; background: rgba(0,0,0,0.5); padding: 5px; }
     </style>
 </head>
 <body>
-    <div id="ui">SCORE: <span id="score">0</span> | [W-A-S-D] TO SKATE</div>
-    <div id="goal">GOAL!</div>
-    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+    <div id="debug">SYSTEM INITIALIZING...</div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+
     <script>
-        // --- CORE VARIABLES ---
-        let score = 0;
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x02050a);
-        scene.fog = new THREE.Fog(0x02050a, 10, 50);
+        window.onload = () => {
+            const debug = document.getElementById('debug');
+            try {
+                if (typeof THREE === 'undefined') throw new Error("THREE.js failed to load from CDN");
 
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.toneMapping = THREE.ReinhardToneMapping;
-        document.body.appendChild(renderer.domElement);
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                const renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                document.body.appendChild(renderer.domElement);
 
-        // --- ARENA DESIGN ---
-        const iceGeo = new THREE.PlaneGeometry(30, 50);
-        const iceMat = new THREE.MeshStandardMaterial({ color: 0xddffff, roughness: 0.05, metalness: 0.3 });
-        const rink = new THREE.Mesh(iceGeo, iceMat);
-        rink.rotation.x = -Math.PI / 2;
-        scene.add(rink);
+                // Quick visual check: The Grid
+                scene.add(new THREE.GridHelper(20, 20, 0x00ffff, 0x333333));
+                scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
-        const grid = new THREE.GridHelper(50, 50, 0x00ffff, 0x112233);
-        grid.position.y = 0.01;
-        scene.add(grid);
+                const player = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+                player.position.y = 0.5;
+                scene.add(player);
 
-        // --- LIGHTING ---
-        const amb = new THREE.AmbientLight(0xffffff, 0.2);
-        const rim = new THREE.DirectionalLight(0x00ffff, 1.5);
-        rim.position.set(0, 20, -10);
-        scene.add(amb, rim);
+                camera.position.set(0, 10, 10);
+                camera.lookAt(0, 0, 0);
 
-        // --- PLAYERS (CAPSULES) ---
-        function createPlayer(color) {
-            const group = new THREE.Group();
-            const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1, 4, 8), new THREE.MeshStandardMaterial({ color: color }));
-            body.position.y = 1;
-            group.add(body);
-            // "Nose" so you know which way you face
-            const nose = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.5), new THREE.MeshBasicMaterial({color: 0xffffff}));
-            nose.position.set(0, 1.2, 0.5);
-            group.add(nose);
-            return group;
-        }
-
-        const player = createPlayer(0xff3333);
-        player.position.set(0, 0, 15);
-        scene.add(player);
-
-        const ai = createPlayer(0x3333ff);
-        ai.position.set(0, 0, -15);
-        scene.add(ai);
-
-        const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.2, 16), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-        puck.position.y = 0.1;
-        let pVel = new THREE.Vector3(0,0,0);
-        scene.add(puck);
-
-        // --- PHYSICS & INPUT ---
-        const keys = {};
-        window.onkeydown = (e) => keys[e.key.toLowerCase()] = true;
-        window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
-
-        camera.position.set(0, 18, 15);
-        camera.lookAt(0, 0, -5);
-
-        function animate() {
-            requestAnimationFrame(animate);
-
-            // Player Skate Physics
-            if (keys['w']) player.position.z -= 0.15;
-            if (keys['s']) player.position.z += 0.15;
-            if (keys['a']) player.position.x -= 0.15;
-            if (keys['d']) player.position.x += 0.15;
-
-            // AI Pro Logic (Intercept & Steal)
-            let target = puck.position.clone();
-            const aiDir = new THREE.Vector3().subVectors(target, ai.position).normalize();
-            ai.position.x += aiDir.x * 0.11;
-            ai.position.z += aiDir.z * 0.11;
-
-            // Puck Collisions
-            if (player.position.distanceTo(puck.position) < 1.2) {
-                pVel.set((puck.position.x - player.position.x)*0.4, 0, (puck.position.z - player.position.z)*0.4);
+                function animate() {
+                    requestAnimationFrame(animate);
+                    renderer.render(scene, camera);
+                }
+                animate();
+                debug.innerHTML = "SENTINEL SYSTEM: ONLINE";
+            } catch (e) {
+                debug.style.color = "red";
+                debug.innerHTML = "FATAL ERROR: " + e.message;
             }
-            if (ai.position.distanceTo(puck.position) < 1.2) {
-                pVel.set(aiDir.x * -0.3, 0, aiDir.z * -0.3);
-            }
-
-            puck.position.add(pVel);
-            pVel.multiplyScalar(0.985); // Realistic Ice Friction
-
-            // Score Detection
-            if (puck.position.z < -24.5) {
-                score++;
-                document.getElementById('score').innerText = score;
-                puck.position.set(0, 0.1, 0);
-                pVel.set(0,0,0);
-                document.getElementById('goal').style.display = 'block';
-                setTimeout(() => document.getElementById('goal').style.display = 'none', 1500);
-            }
-
-            renderer.render(scene, camera);
-        }
-        animate();
+        };
     </script>
 </body>
 </html>
