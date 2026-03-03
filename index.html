@@ -1,126 +1,122 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SENTINEL ARENA: PRO SIM STABLE</title>
+    <title>SENTINEL ARENA: THE PERFECT BUILD</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: 'Arial Black', sans-serif; }
         #ui { position: absolute; top: 20px; left: 20px; color: white; z-index: 10; pointer-events: none; }
-        #scoreboard { font-size: 2rem; border-left: 8px solid #ff0000; padding-left: 15px; text-transform: uppercase; }
-        #msg { position: absolute; top: 40%; width: 100%; text-align: center; color: white; font-size: 6rem; display: none; text-shadow: 0 0 30px #ff0000; }
+        #scoreboard { font-size: 2.5rem; border-left: 5px solid #ff0000; padding-left: 15px; }
+        #msg { position: absolute; top: 40%; width: 100%; text-align: center; color: white; font-size: 5rem; display: none; text-shadow: 0 0 20px #ff0000; }
     </style>
 </head>
 <body>
     <div id="ui">
-        <div id="scoreboard">SENTINEL PRO<br><span id="points" style="color:#ff0000">0</span> GOALS</div>
+        <div id="scoreboard">SCORE: <span id="points">0</span></div>
+        <div style="color: #ff0000; margin-top: 5px;">DRONES ACTIVE | ARROWS/WASD TO SKATE</div>
     </div>
     <div id="msg">GOAL!</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // 1. Scene Setup
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // 2. Lighting (Simple but effective)
-        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-        const sun = new THREE.DirectionalLight(0xffffff, 1);
-        sun.position.set(5, 10, 7.5);
-        scene.add(sun);
-
-        // 3. The Rink (Solid and Visible)
-        const ice = new THREE.Mesh(new THREE.PlaneGeometry(60, 120), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-        ice.rotation.x = -Math.PI / 2;
-        scene.add(ice);
-
-        // Center Red Line
-        const redLine = new THREE.Mesh(new THREE.PlaneGeometry(60, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
-        redLine.rotation.x = -Math.PI/2;
-        redLine.position.y = 0.01;
-        scene.add(redLine);
-
-        // 4. Player & Stick (Using Standard Boxes for Stability)
-        const player = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.5, 1), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
-        body.position.y = 1.25;
-        player.add(body);
-        
-        const stick = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4, 0.2), new THREE.MeshStandardMaterial({ color: 0x555555 }));
-        stick.position.set(1, 0, -1);
-        stick.rotation.x = 0.6;
-        player.add(stick);
-        
-        player.position.z = 40;
-        scene.add(player);
-
-        // 5. Goalie
-        const goalie = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 1.5), new THREE.MeshStandardMaterial({ color: 0x00ffff }));
-        goalie.position.set(0, 2, -55);
-        scene.add(goalie);
-
-        // 6. Puck
-        const puck = new THREE.Mesh(new THREE.SphereGeometry(0.6), new THREE.MeshStandardMaterial({ color: 0xffffff }));
-        puck.position.y = 0.6;
-        scene.add(puck);
-
-        // 7. Input & Physics
+        let score = 0, hasPuck = false, isShooting = false;
         const keys = {};
-        let pVelX = 0, pVelZ = 0, score = 0, shooting = false;
-        
         window.onkeydown = (e) => keys[e.code] = true;
         window.onkeyup = (e) => keys[e.code] = false;
 
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const light = new THREE.PointLight(0xffffff, 1, 150);
+        light.position.set(0, 30, 0);
+        scene.add(light);
+
+        // Ice
+        const ice = new THREE.Mesh(new THREE.PlaneGeometry(60, 120), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+        ice.rotation.x = -Math.PI/2;
+        scene.add(ice);
+        ice.add(new THREE.GridHelper(120, 30, 0xff0000, 0x333333).rotateX(Math.PI/2));
+
+        // Net
+        const net = new THREE.Mesh(new THREE.BoxGeometry(12, 6, 2), new THREE.MeshStandardMaterial({ color: 0xffffff, wireframe: true }));
+        net.position.set(0, 3, -55);
+        scene.add(net);
+
+        // Character with Stick
+        function createPlayer(col) {
+            const group = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.5, 1), new THREE.MeshStandardMaterial({ color: col }));
+            body.position.y = 1.25; group.add(body);
+            const stick = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4, 0.2), new THREE.MeshStandardMaterial({ color: 0x555555 }));
+            stick.position.set(1, 0.5, -1); stick.rotation.x = Math.PI/4;
+            group.add(stick);
+            return group;
+        }
+
+        const player = createPlayer(0xff0000); player.position.set(0, 0, 40); scene.add(player);
+        const goalie = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 1.5), new THREE.MeshStandardMaterial({ color: 0x00ffff }));
+        goalie.position.set(0, 2, -53); scene.add(goalie);
+
+        // Defenders (Drones)
+        const drones = [];
+        for(let i=0; i<2; i++) {
+            const d = new THREE.Mesh(new THREE.OctahedronGeometry(1.5), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+            d.position.set(i === 0 ? -15 : 15, 2, -10);
+            scene.add(d);
+            drones.push({ mesh: d, xDir: i === 0 ? 1 : -1 });
+        }
+
+        const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.3, 32), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+        puck.position.set(0, 0.3, 0); scene.add(puck);
+
         function reset() {
-            shooting = false;
-            puck.position.set(0, 0.6, 0);
+            hasPuck = false; isShooting = false;
+            puck.position.set(0, 0.3, 0);
             player.position.set(0, 0, 40);
-            pVelX = 0; pVelZ = 0;
         }
 
         function animate() {
             requestAnimationFrame(animate);
+            
+            const speed = 0.5;
+            if(keys['KeyW'] || keys['ArrowUp']) player.position.z -= speed;
+            if(keys['KeyS'] || keys['ArrowDown']) player.position.z += speed;
+            if(keys['KeyA'] || keys['ArrowLeft']) player.position.x -= speed;
+            if(keys['KeyD'] || keys['ArrowRight']) player.position.x += speed;
 
-            // REALISTIC HOCKEY PHYSICS
-            const accel = 0.04;
-            const friction = 0.97; // This provides the "glide" feel
-
-            if(keys['ArrowUp'] || keys['KeyW']) pVelZ -= accel;
-            if(keys['ArrowDown'] || keys['KeyS']) pVelZ += accel;
-            if(keys['ArrowLeft'] || keys['KeyA']) pVelX -= accel;
-            if(keys['ArrowRight'] || keys['KeyD']) pVelX += accel;
-
-            pVelX *= friction;
-            pVelZ *= friction;
-            player.position.x += pVelX;
-            player.position.z += pVelZ;
-
-            // Stable Broadcast Camera
-            camera.position.set(player.position.x, 35, player.position.z + 40);
+            camera.position.set(player.position.x, 35, player.position.z + 45);
             camera.lookAt(player.position.x, 0, player.position.z - 10);
 
             // Goalie AI
             goalie.position.x = Math.sin(Date.now() * 0.002) * 12;
 
-            // Stick Handling & Shooting
-            if (!shooting) {
-                puck.position.x = player.position.x;
-                puck.position.z = player.position.z - 3;
-                if (keys['Space']) shooting = true;
-            } else {
-                puck.position.z -= 2;
-                if (puck.position.distanceTo(goalie.position) < 4) reset();
-                if (puck.position.z < -55 && Math.abs(puck.position.x) < 8) {
-                    score++;
-                    document.getElementById('points').innerText = score;
+            // Drone AI
+            drones.forEach(d => {
+                d.mesh.position.x += 0.2 * d.xDir;
+                if(Math.abs(d.mesh.position.x) > 20) d.xDir *= -1;
+                if(player.position.distanceTo(d.mesh.position) < 3 && hasPuck) reset();
+            });
+
+            if(!hasPuck && !isShooting && player.position.distanceTo(puck.position) < 3.5) hasPuck = true;
+
+            if(keys['Space'] && hasPuck) { hasPuck = false; isShooting = true; }
+
+            if(isShooting) {
+                puck.position.z -= 2.5;
+                if(puck.position.distanceTo(goalie.position) < 4.5) reset();
+                if(puck.position.z < -54 && Math.abs(puck.position.x) < 6) {
+                    score++; document.getElementById('points').innerText = score;
                     document.getElementById('msg').style.display = 'block';
                     setTimeout(() => { document.getElementById('msg').style.display = 'none'; reset(); }, 1000);
-                    shooting = false;
+                    isShooting = false;
                 }
-                if (puck.position.z < -80) reset();
+                if(puck.position.z < -80) reset();
+            } else if (hasPuck) {
+                puck.position.set(player.position.x, 0.3, player.position.z - 3);
             }
-
             renderer.render(scene, camera);
         }
         animate();
