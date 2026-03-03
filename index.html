@@ -3,131 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SENTINEL PRO: BROADCAST EDITION</title>
+    <title>SENTINEL PRO: RESET</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Arial Black', sans-serif; }
         #ui {
             position: absolute; top: 20px; left: 20px; color: #fff;
-            text-shadow: 2px 2px #ff0000; pointer-events: none;
+            text-shadow: 2px 2px #ff0000; pointer-events: none; z-index: 10;
         }
-        #scoreboard { font-size: 2.5rem; border-left: 5px solid #ff0000; padding-left: 15px; }
+        #scoreboard { font-size: 2rem; border-left: 5px solid #ff0000; padding-left: 15px; }
         #msg {
             position: absolute; top: 40%; width: 100%; text-align: center;
             color: #fff; font-size: 5rem; display: none; text-shadow: 0 0 30px #ff0000;
-            font-style: italic; z-index: 10;
         }
     </style>
 </head>
 <body>
     <div id="ui">
-        <div id="scoreboard">SENTINEL: <span id="points">0</span></div>
-        <div style="color: #ff0000; font-size: 0.8rem; margin-top: 5px;">LIVE BROADCAST | BOISBRIAND ARENA</div>
+        <div id="scoreboard">SCORE: <span id="points">0</span></div>
+        <div style="color: #ff0000; font-size: 0.8rem;">PRO BROADCAST ACTIVE</div>
     </div>
     <div id="msg">GOAL!</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000000, 0.02); // Add atmospheric fog
-
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
         let score = 0;
 
-        // --- ENHANCED LIGHTING ---
-        const ambient = new THREE.AmbientLight(0x404040, 1);
+        // Lights
+        const ambient = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambient);
-        const sun = new THREE.DirectionalLight(0xff0000, 1);
-        sun.position.set(5, 10, 5);
-        scene.add(sun);
+        const light = new THREE.PointLight(0xff0000, 1, 100);
+        light.position.set(0, 10, 0);
+        scene.add(light);
 
-        // --- REFLECTIVE ICE ---
-        const iceGeo = new THREE.PlaneGeometry(30, 60);
-        const iceMat = new THREE.MeshStandardMaterial({ 
-            color: 0x111111, 
-            metalness: 0.8, 
-            roughness: 0.2 
-        });
-        const ice = new THREE.Mesh(iceGeo, iceMat);
+        // Ice
+        const ice = new THREE.Mesh(
+            new THREE.PlaneGeometry(30, 60),
+            new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.6, roughness: 0.2 })
+        );
         ice.rotation.x = -Math.PI / 2;
         scene.add(ice);
-        
-        // Neon Grid
-        const grid = new THREE.GridHelper(60, 30, 0xff0000, 0x220000);
-        grid.rotation.x = Math.PI / 2;
-        grid.position.z = 0.01;
-        ice.add(grid);
+        ice.add(new THREE.GridHelper(60, 20, 0xff0000, 0x220000).rotateX(Math.PI/2));
 
-        // --- PRO ARENA WALLS ---
-        const wallMat = new THREE.MeshPhongMaterial({ color: 0xff0000, emissive: 0x330000 });
-        const leftWall = new THREE.Mesh(new THREE.BoxGeometry(1, 4, 60), wallMat);
-        leftWall.position.set(-15, 2, 0);
+        // Walls
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+        const leftWall = new THREE.Mesh(new THREE.BoxGeometry(1, 3, 60), wallMat);
+        leftWall.position.set(-15, 1.5, 0);
         scene.add(leftWall);
         const rightWall = leftWall.clone();
         rightWall.position.x = 15;
         scene.add(rightWall);
 
-        // --- PLAYERS ---
-        const player = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, 1.5, 4, 8), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
-        player.position.set(0, 1.5, 20);
+        // Goal
+        const goal = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 1), new THREE.MeshStandardMaterial({ color: 0xff0000, wireframe: true }));
+        goal.position.set(0, 2, -28);
+        scene.add(goal);
+
+        // Characters
+        const player = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2, 1.5), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+        player.position.set(0, 1, 20);
         scene.add(player);
 
         const goalie = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 1), new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff }));
-        goalie.position.set(0, 1.5, -25);
+        goalie.position.set(0, 1.5, -26);
         scene.add(goalie);
 
-        const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.3, 32), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff }));
+        const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.3, 32), new THREE.MeshStandardMaterial({ color: 0xffffff }));
         scene.add(puck);
 
-        // --- LOGIC & MOVEMENT ---
+        // Input
         const keys = {};
         window.onkeydown = (e) => keys[e.code] = true;
         window.onkeyup = (e) => keys[e.code] = false;
 
-        let isShooting = false;
+        let shooting = false;
         let gDir = 1;
 
         function animate() {
             requestAnimationFrame(animate);
 
-            // Smooth Player Movement
-            if ((keys['KeyW'] || keys['ArrowUp']) && player.position.z > -28) player.position.z -= 0.3;
-            if ((keys['KeyS'] || keys['ArrowDown']) && player.position.z < 28) player.position.z += 0.3;
-            if ((keys['KeyA'] || keys['ArrowLeft']) && player.position.x > -14) player.position.x -= 0.3;
-            if ((keys['KeyD'] || keys['ArrowRight']) && player.position.x < 14) player.position.x += 0.3;
+            // Move Player
+            if (keys['KeyW'] || keys['ArrowUp']) player.position.z -= 0.3;
+            if (keys['KeyS'] || keys['ArrowDown']) player.position.z += 0.3;
+            if (keys['KeyA'] || keys['ArrowLeft']) player.position.x -= 0.3;
+            if (keys['KeyD'] || keys['ArrowRight']) player.position.x += 0.3;
 
-            // DYNAMIC CAMERA FOLLOW
-            camera.position.lerp(new THREE.Vector3(player.position.x, 15, player.position.z + 15), 0.1);
-            camera.lookAt(player.position.x, 0, player.position.z - 10);
+            // Camera Follow
+            camera.position.lerp(new THREE.Vector3(player.position.x, 12, player.position.z + 15), 0.1);
+            camera.lookAt(player.position.x, 0, player.position.z - 5);
 
-            // Pro Goalie AI (Moves faster)
-            goalie.position.x += 0.25 * gDir;
-            if (Math.abs(goalie.position.x) > 6) gDir *= -1;
+            // Goalie
+            goalie.position.x += 0.2 * gDir;
+            if (Math.abs(goalie.position.x) > 5) gDir *= -1;
 
-            if (keys['Space'] && !isShooting) {
-                isShooting = true;
+            if (keys['Space'] && !shooting) {
+                shooting = true;
                 puck.position.copy(player.position);
             }
 
-            if (isShooting) {
-                puck.position.z -= 1.2;
+            if (shooting) {
+                puck.position.z -= 1.0;
+                // Hit Goalie
                 if (puck.position.distanceTo(goalie.position) < 2.5) {
-                    isShooting = false;
+                    shooting = false;
                     puck.position.set(0, -10, 0);
                 }
-                if (puck.position.z < -26 && Math.abs(puck.position.x) < 5) {
-                    isShooting = false;
+                // Score
+                if (puck.position.z < -27 && Math.abs(puck.position.x) < 4) {
+                    shooting = false;
                     score++;
                     document.getElementById('points').innerText = score;
                     document.getElementById('msg').style.display = 'block';
                     setTimeout(() => document.getElementById('msg').style.display = 'none', 1000);
                     puck.position.set(0, -10, 0);
                 }
-                if (puck.position.z < -35) isShooting = false;
+                if (puck.position.z < -40) shooting = false;
             } else {
                 puck.position.set(player.position.x, 0.3, player.position.z - 1.5);
             }
