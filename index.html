@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SENTINEL ARENA: THE PERFECT BUILD</title>
+    <title>SENTINEL ARENA: PERFECTED</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: 'Arial Black', sans-serif; }
         #ui { position: absolute; top: 20px; left: 20px; color: white; z-index: 10; pointer-events: none; }
@@ -12,7 +12,7 @@
 <body>
     <div id="ui">
         <div id="scoreboard">SCORE: <span id="points">0</span></div>
-        <div style="color: #ff0000; margin-top: 5px;">DRONES ACTIVE | ARROWS/WASD TO SKATE</div>
+        <div style="color: #ff0000; margin-top: 5px;">CLASSIC MODE RESTORED</div>
     </div>
     <div id="msg">GOAL!</div>
 
@@ -29,23 +29,23 @@
         window.onkeydown = (e) => keys[e.code] = true;
         window.onkeyup = (e) => keys[e.code] = false;
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-        const light = new THREE.PointLight(0xffffff, 1, 150);
-        light.position.set(0, 30, 0);
-        scene.add(light);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+        const sun = new THREE.PointLight(0xffffff, 1, 150);
+        sun.position.set(0, 30, 0);
+        scene.add(sun);
 
-        // Ice
+        // Ice with Grid
         const ice = new THREE.Mesh(new THREE.PlaneGeometry(60, 120), new THREE.MeshStandardMaterial({ color: 0x111111 }));
         ice.rotation.x = -Math.PI/2;
         scene.add(ice);
         ice.add(new THREE.GridHelper(120, 30, 0xff0000, 0x333333).rotateX(Math.PI/2));
 
-        // Net
+        // Net (Visible White Frame)
         const net = new THREE.Mesh(new THREE.BoxGeometry(12, 6, 2), new THREE.MeshStandardMaterial({ color: 0xffffff, wireframe: true }));
         net.position.set(0, 3, -55);
         scene.add(net);
 
-        // Character with Stick
+        // Character + Stick
         function createPlayer(col) {
             const group = new THREE.Group();
             const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.5, 1), new THREE.MeshStandardMaterial({ color: col }));
@@ -60,11 +60,11 @@
         const goalie = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 1.5), new THREE.MeshStandardMaterial({ color: 0x00ffff }));
         goalie.position.set(0, 2, -53); scene.add(goalie);
 
-        // Defenders (Drones)
+        // The Two Drones
         const drones = [];
         for(let i=0; i<2; i++) {
             const d = new THREE.Mesh(new THREE.OctahedronGeometry(1.5), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
-            d.position.set(i === 0 ? -15 : 15, 2, -10);
+            d.position.set(i === 0 ? -15 : 15, 2, -5);
             scene.add(d);
             drones.push({ mesh: d, xDir: i === 0 ? 1 : -1 });
         }
@@ -87,16 +87,17 @@
             if(keys['KeyA'] || keys['ArrowLeft']) player.position.x -= speed;
             if(keys['KeyD'] || keys['ArrowRight']) player.position.x += speed;
 
+            // Stable Top-Down Camera
             camera.position.set(player.position.x, 35, player.position.z + 45);
             camera.lookAt(player.position.x, 0, player.position.z - 10);
 
-            // Goalie AI
+            // Goalie Movement
             goalie.position.x = Math.sin(Date.now() * 0.002) * 12;
 
-            // Drone AI
+            // Drone Movement
             drones.forEach(d => {
-                d.mesh.position.x += 0.2 * d.xDir;
-                if(Math.abs(d.mesh.position.x) > 20) d.xDir *= -1;
+                d.mesh.position.x += 0.25 * d.xDir;
+                if(Math.abs(d.mesh.position.x) > 22) d.xDir *= -1;
                 if(player.position.distanceTo(d.mesh.position) < 3 && hasPuck) reset();
             });
 
