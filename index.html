@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SENTINEL ARENA: GOALIE RETURN</title>
+    <title>SENTINEL ARENA: PRO SIM</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Arial Black', sans-serif; }
         #ui { position: absolute; top: 20px; left: 20px; color: #fff; text-shadow: 2px 2px #ff0000; pointer-events: none; z-index: 10; }
         #scoreboard { font-size: 2.5rem; border-left: 5px solid #ff0000; padding-left: 15px; }
         #status { color: #ff0000; font-size: 1rem; margin-top: 10px; background: rgba(0,0,0,0.8); padding: 8px; border-radius: 5px; }
-        #msg { position: absolute; top: 40%; width: 100%; text-align: center; color: #fff; font-size: 6rem; display: none; text-shadow: 0 0 40px #ff0000; font-style: italic; }
+        #msg { position: absolute; top: 40%; width: 100%; text-align: center; color: #fff; font-size: 6rem; display: none; text-shadow: 0 0 40px #ff0000; }
     </style>
 </head>
 <body>
     <div id="ui">
         <div id="scoreboard">SENTINEL: <span id="points">0</span></div>
-        <div id="status">GOALIE & DRONES ACTIVE | SPACE TO SNAPSHOT</div>
+        <div id="status">Q/E TO DEKE | SHIFT TO PUSH | SPACE TO SHOOT</div>
     </div>
     <div id="msg">GOAL!</div>
 
@@ -27,56 +27,43 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        let score = 0, hasPuck = false, isShooting = false, jerseyIdx = 0;
-        let pVelX = 0, pVelZ = 0;
-        let puckVX = 0, puckVZ = 0;
-        const jerseys = [0xff0000, 0xffffff, 0x333333];
+        let score = 0, hasPuck = false, isShooting = false;
+        let pVelX = 0, pVelZ = 0, dekeOffset = 0;
+        let puckVX = 0, puckVZ = 0, cradleTimer = 0;
         const keys = {};
 
-        window.onkeydown = (e) => { 
-            keys[e.code] = true; 
-            if(e.code === 'KeyC') { jerseyIdx = (jerseyIdx + 1) % 3; playerBody.material.color.setHex(jerseys[jerseyIdx]); }
-        };
+        window.onkeydown = (e) => keys[e.code] = true;
         window.onkeyup = (e) => keys[e.code] = false;
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-        const arenaLight = new THREE.PointLight(0xff0000, 2, 100); arenaLight.position.set(0, 25, 0); scene.add(arenaLight);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        const arenaLight = new THREE.PointLight(0xff0000, 3, 100); arenaLight.position.set(0, 25, 0); scene.add(arenaLight);
 
         // Ice
-        const ice = new THREE.Mesh(new THREE.PlaneGeometry(40, 80), new THREE.MeshStandardMaterial({ color: 0x080808, metalness: 0.9, roughness: 0.05 }));
+        const ice = new THREE.Mesh(new THREE.PlaneGeometry(50, 100), new THREE.MeshStandardMaterial({ color: 0x050505, metalness: 0.9, roughness: 0.05 }));
         ice.rotation.x = -Math.PI/2; scene.add(ice);
-        ice.add(new THREE.GridHelper(80, 40, 0xff0000, 0x111111).rotateX(Math.PI/2));
+        ice.add(new THREE.GridHelper(100, 50, 0xff0000, 0x111111).rotateX(Math.PI/2));
 
-        // Walls & Net
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x110000 });
-        const lWall = new THREE.Mesh(new THREE.BoxGeometry(1, 4, 80), wallMat); lWall.position.set(-20, 2, 0); scene.add(lWall);
-        const rWall = lWall.clone(); rWall.position.x = 20; scene.add(rWall);
+        // Net
         const net = new THREE.Mesh(new THREE.BoxGeometry(12, 6, 2), new THREE.MeshStandardMaterial({ color: 0xff0000, wireframe: true }));
-        net.position.set(0, 3, -38); scene.add(net);
+        net.position.set(0, 3, -45); scene.add(net);
 
         function createChar(col, isGoalie = false) {
             const g = new THREE.Group();
-            const b = new THREE.Mesh(new THREE.BoxGeometry(isGoalie ? 2.5 : 1.2, 2, 0.8), new THREE.MeshStandardMaterial({ color: col }));
-            b.position.y = 1; g.add(b);
-            const h = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0xeeeeee }));
-            h.position.y = 2.4; g.add(h);
-            return { group: g, body: b };
+            const b = new THREE.Mesh(new THREE.BoxGeometry(isGoalie ? 3 : 1.4, 2.2, 1), new THREE.MeshStandardMaterial({ color: col }));
+            b.position.y = 1.1; g.add(b);
+            const h = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), new THREE.MeshStandardMaterial({ color: 0xeeeeee }));
+            h.position.y = 2.6; g.add(h);
+            return g;
         }
 
-        const pObj = createChar(0xff0000); const player = pObj.group; const playerBody = pObj.body; player.position.set(0, 0, 25); scene.add(player);
-        
-        // --- GOALIE RE-ADDED HERE ---
-        const gObj = createChar(0x00ffff, true); 
-        const goalie = gObj.group; 
-        goalie.position.set(0, 0, -35); 
-        scene.add(goalie);
+        const player = createChar(0xff0000); player.position.set(0, 0, 35); scene.add(player);
+        const goalie = createChar(0x00ffff, true); goalie.position.set(0, 0, -43); scene.add(goalie);
 
-        // Drones
         const drones = [];
-        for(let i=0; i<2; i++) {
-            const d = new THREE.Mesh(new THREE.OctahedronGeometry(1.2), new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x220000 }));
-            d.position.set(i === 0 ? -10 : 10, 1.5, -5);
-            scene.add(d); drones.push({ mesh: d, xDir: i === 0 ? 1 : -1, zDir: 0.5 });
+        for(let i=0; i<3; i++) {
+            const d = new THREE.Mesh(new THREE.OctahedronGeometry(1.5), new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x330000 }));
+            d.position.set((i-1)*15, 2, 0);
+            scene.add(d); drones.push({ mesh: d, xDir: Math.random()-0.5, zDir: Math.random()-0.5 });
         }
 
         const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.4, 32), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x444444 }));
@@ -85,65 +72,81 @@
         function resetPuck() {
             hasPuck = false; isShooting = false;
             puck.position.set(0, 15, 0); puckVX = 0; puckVZ = 0;
-            document.getElementById('status').innerText = 'PUCK DROPPED AT CENTER';
+            document.getElementById('status').innerText = 'FACE-OFF';
         }
 
         function animate() {
             requestAnimationFrame(animate);
             
-            const accel = 0.02, friction = 0.94;
-            if(keys['KeyW'] || keys['ArrowUp']) pVelZ -= accel;
-            if(keys['KeyS'] || keys['ArrowDown']) pVelZ += accel;
-            if(keys['KeyA'] || keys['ArrowLeft']) pVelX -= accel;
-            if(keys['KeyD'] || keys['ArrowRight']) pVelX += accel;
+            // SIMULATION SKATING PHYSICS
+            const isTurbo = keys['ShiftLeft'] || keys['ShiftRight'];
+            const accel = isTurbo ? 0.05 : 0.03; 
+            const friction = 0.96; // Less friction = more "ice" feel
+            const turnSpeed = 0.04;
+
+            if(keys['KeyW']) pVelZ -= accel;
+            if(keys['KeyS']) pVelZ += accel;
+            if(keys['KeyA']) pVelX -= accel;
+            if(keys['KeyD']) pVelX += accel;
             
             pVelX *= friction; pVelZ *= friction;
             player.position.x += pVelX; player.position.z += pVelZ;
 
-            if(Math.abs(player.position.x) > 19) { player.position.x = Math.sign(player.position.x)*19; pVelX *= -0.5; }
-            if(Math.abs(player.position.z) > 38) { player.position.z = Math.sign(player.position.z)*38; pVelZ *= -0.5; }
+            // Deke Logic
+            if(keys['KeyQ']) dekeOffset = THREE.MathUtils.lerp(dekeOffset, -2.5, 0.2);
+            else if(keys['KeyE']) dekeOffset = THREE.MathUtils.lerp(dekeOffset, 2.5, 0.2);
+            else dekeOffset = THREE.MathUtils.lerp(dekeOffset, 0, 0.1);
 
-            camera.position.lerp(new THREE.Vector3(player.position.x, 22, player.position.z + 25), 0.1);
+            // Boundaries
+            if(Math.abs(player.position.x) > 23) { player.position.x = Math.sign(player.position.x)*23; pVelX *= -0.3; }
+            if(Math.abs(player.position.z) > 48) { player.position.z = Math.sign(player.position.z)*48; pVelZ *= -0.3; }
+
+            camera.position.lerp(new THREE.Vector3(player.position.x, 25, player.position.z + 30), 0.1);
             camera.lookAt(player.position.x, 0, player.position.z - 10);
 
             arenaLight.color.setHex(player.position.z < 0 ? 0xff0000 : 0xffffff);
             arenaLight.position.x = player.position.x;
 
             drones.forEach(d => {
-                d.mesh.position.x += 0.2*d.xDir; d.mesh.position.z += 0.1*d.zDir;
-                if(Math.abs(d.mesh.position.x) > 18) d.xDir *= -1;
-                if(Math.abs(d.mesh.position.z) > 15) d.zDir *= -1;
-                if(player.position.distanceTo(d.mesh.position) < 2.5 && hasPuck) {
-                    hasPuck = false; puck.position.set(player.position.x, 0.3, player.position.z);
-                    document.getElementById('status').innerText = 'POSSESSION LOST!';
+                d.mesh.position.x += 0.2*d.xDir; d.mesh.position.z += 0.2*d.zDir;
+                if(Math.abs(d.mesh.position.x) > 22) d.xDir *= -1;
+                if(Math.abs(d.mesh.position.z) > 20) d.zDir *= -1;
+                if(player.position.distanceTo(d.mesh.position) < 3 && hasPuck) {
+                    hasPuck = false; puck.position.set(player.position.x + dekeOffset, 0.3, player.position.z);
+                    document.getElementById('status').innerText = 'TURNOVER!';
                 }
             });
 
-            // Goalie follow logic
+            // Goalie Logic
             let gT = (isShooting || hasPuck) ? puck.position.x : player.position.x;
-            goalie.position.x = THREE.MathUtils.lerp(goalie.position.x, THREE.MathUtils.clamp(gT, -6, 6), 0.12);
+            goalie.position.x = THREE.MathUtils.lerp(goalie.position.x, THREE.MathUtils.clamp(gT, -7, 7), 0.1);
 
             if(puck.position.y > 0.3) puck.position.y -= 0.2;
-            if(!hasPuck && !isShooting && player.position.distanceTo(puck.position) < 2.5 && puck.position.y < 1) {
-                hasPuck = true; document.getElementById('status').innerText = 'ATTACKING';
+            if(!hasPuck && !isShooting && player.position.distanceTo(puck.position) < 3) {
+                hasPuck = true; document.getElementById('status').innerText = 'IN CONTROL';
             }
 
-            if(keys['Space'] && hasPuck) { hasPuck = false; isShooting = true; puckVZ = -2.2; puckVX = pVelX + (Math.random()-0.5); }
+            if(keys['Space'] && hasPuck) { 
+                hasPuck = false; isShooting = true; 
+                puckVZ = -2.5; puckVX = pVelX + (dekeOffset * 0.2); 
+            }
 
             if(isShooting) {
                 puck.position.z += puckVZ; puck.position.x += puckVX;
-                if(Math.abs(puck.position.x) > 19) puckVX *= -1;
-                if(puck.position.distanceTo(goalie.position) < 3.8) { resetPuck(); document.getElementById('status').innerText = 'SAVED!'; }
-                if(puck.position.z < -38 && Math.abs(puck.position.x) < 6) {
+                if(Math.abs(puck.position.x) > 24) puckVX *= -1;
+                if(puck.position.distanceTo(goalie.position) < 4) resetPuck();
+                if(puck.position.z < -45 && Math.abs(puck.position.x) < 6) {
                     score++; document.getElementById('points').innerText = score;
                     document.getElementById('msg').style.display = 'block';
-                    arenaLight.intensity = 10;
-                    setTimeout(() => { document.getElementById('msg').style.display = 'none'; arenaLight.intensity = 2; resetPuck(); }, 1500);
+                    setTimeout(() => { document.getElementById('msg').style.display = 'none'; resetPuck(); }, 1000);
                     isShooting = false; puck.position.y = -50;
                 }
-                if(puck.position.z < -60 || puck.position.z > 40) resetPuck();
+                if(puck.position.z < -65 || puck.position.z > 55) resetPuck();
             } else if (hasPuck) {
-                puck.position.set(player.position.x, 0.3, player.position.z - 1.8);
+                // ACTIVE CRADLE LOGIC
+                cradleTimer += 0.1;
+                let cradle = Math.sin(cradleTimer) * 0.8;
+                puck.position.set(player.position.x + dekeOffset + cradle, 0.3, player.position.z - 2.5);
             }
             renderer.render(scene, camera);
         }
