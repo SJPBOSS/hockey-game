@@ -1,53 +1,164 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sentinel Slapshot: Ultra Fixed</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #010101; color: #0ff; font-family: monospace; }
-        #debug { position: absolute; top: 10px; left: 10px; z-index: 100; pointer-events: none; background: rgba(0,0,0,0.5); padding: 5px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sentinel Slapshot — VELLURA Studios</title>
+  <meta name="description" content="Sentinel Slapshot is an original three-on-three arcade hockey game from VELLURA Studios. Skate, pass, and rip slapshots for the Ashford Sentinels.">
+  <meta name="theme-color" content="#070b10">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Sentinel Slapshot — VELLURA Studios">
+  <meta property="og:description" content="Original arcade hockey. Skate, pass, and beat the goalie in a three-period 3-on-3.">
+  <meta property="og:image" content="assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Sentinel Slapshot — VELLURA Studios">
+  <meta name="twitter:description" content="Original arcade hockey. Skate, pass, and beat the goalie in a three-period 3-on-3.">
+  <meta name="twitter:image" content="assets/og.png">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/favicon.png" type="image/png" sizes="64x64">
+  <link rel="apple-touch-icon" href="assets/favicon.png">
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <div id="debug">SYSTEM INITIALIZING...</div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <canvas id="ice" aria-hidden="true"></canvas>
+  <div id="vignette" aria-hidden="true"></div>
+  <div id="flash" aria-hidden="true"></div>
+  <div class="watermark left" data-i18n="homeName"></div>
+  <div class="watermark right" data-i18n="awayName"></div>
+  <div id="live" class="sr" aria-live="polite"></div>
 
-    <script>
-        window.onload = () => {
-            const debug = document.getElementById('debug');
-            try {
-                if (typeof THREE === 'undefined') throw new Error("THREE.js failed to load from CDN");
+  <header id="hud" hidden>
+    <button id="btnPause" class="icon" type="button" data-i18n-aria="pause" aria-label="Pause">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 5h3v14H7zM14 5h3v14h-3z"/></svg>
+    </button>
+    <div class="scorebug">
+      <div class="side home">
+        <span class="club" data-i18n="homeShort">ASH</span>
+        <b id="scoreHome">0</b>
+      </div>
+      <div class="mid">
+        <div id="periodLabel">P1</div>
+        <div id="clock">0:45</div>
+      </div>
+      <div class="side away">
+        <span class="club" data-i18n="awayShort">KES</span>
+        <b id="scoreAway">0</b>
+      </div>
+    </div>
+    <button id="btnMute" class="icon" type="button" data-mute data-i18n-aria="soundOn" aria-label="Sound on">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path class="waves" fill="currentColor" d="M4 9h4l5-4v14l-5-4H4zM16 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="2" fill="none"/>
+        <path class="slash" d="M5 5l14 14" stroke="currentColor" stroke-width="2" fill="none"/>
+      </svg>
+    </button>
+  </header>
 
-                const scene = new THREE.Scene();
-                const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-                const renderer = new THREE.WebGLRenderer({ antialias: true });
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                document.body.appendChild(renderer.domElement);
+  <div id="banner" class="banner" hidden></div>
 
-                // Quick visual check: The Grid
-                scene.add(new THREE.GridHelper(20, 20, 0x00ffff, 0x333333));
-                scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+  <section id="title" class="overlay">
+    <div class="panel">
+      <p class="eyebrow" data-i18n="studios">VELLURA STUDIOS</p>
+      <h1><span>SENTINEL</span><span>SLAPSHOT</span></h1>
+      <p class="tag" data-i18n="tag"></p>
+      <div class="lines">
+        <div><b data-i18n="homeShort">ASH</b> <span data-i18n="homeLine"></span></div>
+        <div><b data-i18n="awayShort">KES</b> <span data-i18n="awayLine"></span></div>
+      </div>
+      <div class="seg" role="radiogroup" data-i18n-aria="difficulty" aria-label="Difficulty">
+        <button type="button" data-diff="rookie" data-i18n="rookie">ROOKIE</button>
+        <button type="button" data-diff="pro" data-i18n="pro">PRO</button>
+        <button type="button" data-diff="elite" data-i18n="elite">ELITE</button>
+      </div>
+      <p class="tip" id="tip"></p>
+      <div class="actions">
+        <button id="btnPlay" class="play" type="button" data-i18n="play">PLAY</button>
+        <button id="btnHow" class="ghost" type="button" data-i18n="how">HOW TO PLAY</button>
+      </div>
+      <p class="hint desktop-only" data-i18n="titleHint"></p>
+      <p class="hint touch-only" data-i18n="titleHintTouch"></p>
+      <p class="best" id="best" hidden></p>
+      <div class="seg langs" role="radiogroup" aria-label="Language">
+        <button type="button" data-lang="en">EN</button>
+        <button type="button" data-lang="fr">FR</button>
+        <button type="button" data-lang="es">ES</button>
+        <button type="button" data-mute data-i18n-aria="soundOn" aria-label="Sound on">♪</button>
+      </div>
+      <p class="credits" data-i18n="credits"></p>
+    </div>
+  </section>
 
-                const player = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
-                player.position.y = 0.5;
-                scene.add(player);
+  <section id="help" class="overlay" hidden>
+    <div class="panel">
+      <p class="eyebrow" data-i18n="studios"></p>
+      <h2 data-i18n="howTitle"></h2>
+      <p class="lead" data-i18n="helpLead"></p>
+      <ul class="help-list">
+        <li><b data-i18n="lSkate"></b><span data-i18n="cSkate"></span></li>
+        <li><b data-i18n="lAim"></b><span data-i18n="cAim"></span></li>
+        <li><b data-i18n="lShot"></b><span data-i18n="cShot"></span></li>
+        <li><b data-i18n="lSlap"></b><span data-i18n="cSlap"></span></li>
+        <li><b data-i18n="lPass"></b><span data-i18n="cPass"></span></li>
+        <li><b data-i18n="lPause"></b><span data-i18n="cPause"></span></li>
+      </ul>
+      <div class="actions">
+        <button id="btnBack" class="play" type="button" data-i18n="back">BACK</button>
+      </div>
+      <p class="credits" data-i18n="credits"></p>
+    </div>
+  </section>
 
-                camera.position.set(0, 10, 10);
-                camera.lookAt(0, 0, 0);
+  <section id="pause" class="overlay" hidden role="dialog" aria-modal="true">
+    <div class="panel">
+      <p class="eyebrow" data-i18n="studios"></p>
+      <h2 data-i18n="paused"></h2>
+      <div class="actions">
+        <button id="btnResume" class="play" type="button" data-i18n="resume"></button>
+        <button id="btnRestart" class="ghost" type="button" data-i18n="restart"></button>
+        <button id="btnQuit" class="texty" type="button" data-i18n="quit"></button>
+      </div>
+    </div>
+  </section>
 
-                function animate() {
-                    requestAnimationFrame(animate);
-                    renderer.render(scene, camera);
-                }
-                animate();
-                debug.innerHTML = "SENTINEL SYSTEM: ONLINE";
-            } catch (e) {
-                debug.style.color = "red";
-                debug.innerHTML = "FATAL ERROR: " + e.message;
-            }
-        };
-    </script>
+  <section id="results" class="overlay" hidden role="dialog" aria-modal="true">
+    <div class="panel">
+      <p class="final-kicker" id="resKicker"></p>
+      <h2 class="headline" id="resHeadline"></h2>
+      <div class="final-score">
+        <div>
+          <div class="club" id="resHome"></div>
+        </div>
+        <div class="res-score"><b id="resHomeScore">0</b></div>
+        <div class="dash">–</div>
+        <div class="res-score"><b id="resAwayScore">0</b></div>
+        <div>
+          <div class="club" id="resAway"></div>
+        </div>
+      </div>
+      <div class="statgrid">
+        <div><span data-i18n="shots"></span><b id="resShots"></b></div>
+        <div><span data-i18n="saves"></span><b id="resSaves"></b></div>
+        <div><span data-i18n="hits"></span><b id="resHits"></b></div>
+        <div><span data-i18n="passes"></span><b id="resPasses"></b></div>
+      </div>
+      <div class="actions">
+        <button id="btnAgain" class="play" type="button" data-i18n="again"></button>
+        <button id="btnResultsTitle" class="ghost" type="button" data-i18n="quit"></button>
+      </div>
+    </div>
+  </section>
+
+  <div id="touch">
+    <div id="stickHint"></div>
+    <div id="stickBase" hidden></div>
+    <div id="stickKnob" hidden></div>
+    <button id="btnPass" type="button" data-i18n="passBtn">PASS</button>
+    <button id="btnShoot" type="button" data-i18n="shoot">SHOOT</button>
+  </div>
+
+  <noscript>Sentinel Slapshot needs JavaScript to skate.</noscript>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
