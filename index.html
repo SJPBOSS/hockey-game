@@ -1,150 +1,164 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SENTINEL ARENA: PRO-SERIES</title>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Arial Black', sans-serif; }
-        #ui { position: absolute; top: 20px; left: 20px; color: #fff; text-shadow: 2px 2px #ff0000; pointer-events: none; z-index: 10; }
-        #scoreboard { font-size: 2.5rem; border-left: 5px solid #ff0000; padding-left: 15px; }
-        #status { color: #ff0000; font-size: 1rem; margin-top: 10px; background: rgba(0,0,0,0.8); padding: 8px; border-radius: 5px; border: 1px solid #444; }
-        #msg { position: absolute; top: 40%; width: 100%; text-align: center; color: #fff; font-size: 6rem; display: none; text-shadow: 0 0 40px #ff0000; font-style: italic; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sentinel Slapshot — VELLURA Studios</title>
+  <meta name="description" content="Sentinel Slapshot is an original three-on-three arcade hockey game from VELLURA Studios. Skate, pass, and rip slapshots for the Ashford Sentinels.">
+  <meta name="theme-color" content="#070b10">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Sentinel Slapshot — VELLURA Studios">
+  <meta property="og:description" content="Original arcade hockey. Skate, pass, and beat the goalie in a three-period 3-on-3.">
+  <meta property="og:image" content="assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Sentinel Slapshot — VELLURA Studios">
+  <meta name="twitter:description" content="Original arcade hockey. Skate, pass, and beat the goalie in a three-period 3-on-3.">
+  <meta name="twitter:image" content="assets/og.png">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/favicon.png" type="image/png" sizes="64x64">
+  <link rel="apple-touch-icon" href="assets/favicon.png">
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <div id="ui">
-        <div id="scoreboard">SENTINEL: <span id="points">0</span></div>
-        <div id="status">GOAL LIGHTS ACTIVE | SPACE TO SNAPSHOT</div>
+  <canvas id="ice" aria-hidden="true"></canvas>
+  <div id="vignette" aria-hidden="true"></div>
+  <div id="flash" aria-hidden="true"></div>
+  <div class="watermark left" data-i18n="homeName"></div>
+  <div class="watermark right" data-i18n="awayName"></div>
+  <div id="live" class="sr" aria-live="polite"></div>
+
+  <header id="hud" hidden>
+    <button id="btnPause" class="icon" type="button" data-i18n-aria="pause" aria-label="Pause">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 5h3v14H7zM14 5h3v14h-3z"/></svg>
+    </button>
+    <div class="scorebug">
+      <div class="side home">
+        <span class="club" data-i18n="homeShort">ASH</span>
+        <b id="scoreHome">0</b>
+      </div>
+      <div class="mid">
+        <div id="periodLabel">P1</div>
+        <div id="clock">0:45</div>
+      </div>
+      <div class="side away">
+        <span class="club" data-i18n="awayShort">KES</span>
+        <b id="scoreAway">0</b>
+      </div>
     </div>
-    <div id="msg">GOAL!</div>
+    <button id="btnMute" class="icon" type="button" data-mute data-i18n-aria="soundOn" aria-label="Sound on">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path class="waves" fill="currentColor" d="M4 9h4l5-4v14l-5-4H4zM16 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="2" fill="none"/>
+        <path class="slash" d="M5 5l14 14" stroke="currentColor" stroke-width="2" fill="none"/>
+      </svg>
+    </button>
+  </header>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script>
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+  <div id="banner" class="banner" hidden></div>
 
-        let score = 0, hasPuck = false, isShooting = false, jerseyIdx = 0;
-        let pVelX = 0, pVelZ = 0, pX = 0, pZ = 25; // Player position/velocity
-        let puckVX = 0, puckVZ = 0;
-        const jerseys = [0xff0000, 0xffffff, 0x333333];
-        const keys = {};
+  <section id="title" class="overlay">
+    <div class="panel">
+      <p class="eyebrow" data-i18n="studios">VELLURA STUDIOS</p>
+      <h1><span>SENTINEL</span><span>SLAPSHOT</span></h1>
+      <p class="tag" data-i18n="tag"></p>
+      <div class="lines">
+        <div><b data-i18n="homeShort">ASH</b> <span data-i18n="homeLine"></span></div>
+        <div><b data-i18n="awayShort">KES</b> <span data-i18n="awayLine"></span></div>
+      </div>
+      <div class="seg" role="radiogroup" data-i18n-aria="difficulty" aria-label="Difficulty">
+        <button type="button" data-diff="rookie" data-i18n="rookie">ROOKIE</button>
+        <button type="button" data-diff="pro" data-i18n="pro">PRO</button>
+        <button type="button" data-diff="elite" data-i18n="elite">ELITE</button>
+      </div>
+      <p class="tip" id="tip"></p>
+      <div class="actions">
+        <button id="btnPlay" class="play" type="button" data-i18n="play">PLAY</button>
+        <button id="btnHow" class="ghost" type="button" data-i18n="how">HOW TO PLAY</button>
+      </div>
+      <p class="hint desktop-only" data-i18n="titleHint"></p>
+      <p class="hint touch-only" data-i18n="titleHintTouch"></p>
+      <p class="best" id="best" hidden></p>
+      <div class="seg langs" role="radiogroup" aria-label="Language">
+        <button type="button" data-lang="en">EN</button>
+        <button type="button" data-lang="fr">FR</button>
+        <button type="button" data-lang="es">ES</button>
+        <button type="button" data-mute data-i18n-aria="soundOn" aria-label="Sound on">♪</button>
+      </div>
+      <p class="credits" data-i18n="credits"></p>
+    </div>
+  </section>
 
-        window.onkeydown = (e) => { 
-            keys[e.code] = true; 
-            if(e.code === 'KeyC') { jerseyIdx = (jerseyIdx + 1) % 3; playerBody.material.color.setHex(jerseys[jerseyIdx]); }
-        };
-        window.onkeyup = (e) => keys[e.code] = false;
+  <section id="help" class="overlay" hidden>
+    <div class="panel">
+      <p class="eyebrow" data-i18n="studios"></p>
+      <h2 data-i18n="howTitle"></h2>
+      <p class="lead" data-i18n="helpLead"></p>
+      <ul class="help-list">
+        <li><b data-i18n="lSkate"></b><span data-i18n="cSkate"></span></li>
+        <li><b data-i18n="lAim"></b><span data-i18n="cAim"></span></li>
+        <li><b data-i18n="lShot"></b><span data-i18n="cShot"></span></li>
+        <li><b data-i18n="lSlap"></b><span data-i18n="cSlap"></span></li>
+        <li><b data-i18n="lPass"></b><span data-i18n="cPass"></span></li>
+        <li><b data-i18n="lPause"></b><span data-i18n="cPause"></span></li>
+      </ul>
+      <div class="actions">
+        <button id="btnBack" class="play" type="button" data-i18n="back">BACK</button>
+      </div>
+      <p class="credits" data-i18n="credits"></p>
+    </div>
+  </section>
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-        const arenaLight = new THREE.PointLight(0xff0000, 2, 100); arenaLight.position.set(0, 25, 0); scene.add(arenaLight);
+  <section id="pause" class="overlay" hidden role="dialog" aria-modal="true">
+    <div class="panel">
+      <p class="eyebrow" data-i18n="studios"></p>
+      <h2 data-i18n="paused"></h2>
+      <div class="actions">
+        <button id="btnResume" class="play" type="button" data-i18n="resume"></button>
+        <button id="btnRestart" class="ghost" type="button" data-i18n="restart"></button>
+        <button id="btnQuit" class="texty" type="button" data-i18n="quit"></button>
+      </div>
+    </div>
+  </section>
 
-        // Ice with more "gloss"
-        const ice = new THREE.Mesh(new THREE.PlaneGeometry(40, 80), new THREE.MeshStandardMaterial({ color: 0x080808, metalness: 0.9, roughness: 0.05 }));
-        ice.rotation.x = -Math.PI/2; scene.add(ice);
-        ice.add(new THREE.GridHelper(80, 40, 0xff0000, 0x111111).rotateX(Math.PI/2));
+  <section id="results" class="overlay" hidden role="dialog" aria-modal="true">
+    <div class="panel">
+      <p class="final-kicker" id="resKicker"></p>
+      <h2 class="headline" id="resHeadline"></h2>
+      <div class="final-score">
+        <div>
+          <div class="club" id="resHome"></div>
+        </div>
+        <div class="res-score"><b id="resHomeScore">0</b></div>
+        <div class="dash">–</div>
+        <div class="res-score"><b id="resAwayScore">0</b></div>
+        <div>
+          <div class="club" id="resAway"></div>
+        </div>
+      </div>
+      <div class="statgrid">
+        <div><span data-i18n="shots"></span><b id="resShots"></b></div>
+        <div><span data-i18n="saves"></span><b id="resSaves"></b></div>
+        <div><span data-i18n="hits"></span><b id="resHits"></b></div>
+        <div><span data-i18n="passes"></span><b id="resPasses"></b></div>
+      </div>
+      <div class="actions">
+        <button id="btnAgain" class="play" type="button" data-i18n="again"></button>
+        <button id="btnResultsTitle" class="ghost" type="button" data-i18n="quit"></button>
+      </div>
+    </div>
+  </section>
 
-        // High-vis Walls
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x110000 });
-        const lWall = new THREE.Mesh(new THREE.BoxGeometry(1, 4, 80), wallMat); lWall.position.set(-20, 2, 0); scene.add(lWall);
-        const rWall = lWall.clone(); rWall.position.x = 20; scene.add(rWall);
+  <div id="touch">
+    <div id="stickHint"></div>
+    <div id="stickBase" hidden></div>
+    <div id="stickKnob" hidden></div>
+    <button id="btnPass" type="button" data-i18n="passBtn">PASS</button>
+    <button id="btnShoot" type="button" data-i18n="shoot">SHOOT</button>
+  </div>
 
-        // Net
-        const net = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 2), new THREE.MeshStandardMaterial({ color: 0xff0000, wireframe: true }));
-        net.position.set(0, 2.5, -38); scene.add(net);
-
-        function createChar(col) {
-            const g = new THREE.Group();
-            const b = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2, 0.8), new THREE.MeshStandardMaterial({ color: col }));
-            b.position.y = 1; g.add(b);
-            const h = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0xeeeeee }));
-            h.position.y = 2.4; g.add(h);
-            return { group: g, body: b };
-        }
-
-        const pObj = createChar(0xff0000); const player = pObj.group; const playerBody = pObj.body; scene.add(player);
-        const gObj = createChar(0x00ffff); const goalie = gObj.group; goalie.scale.set(1.8, 1, 1); scene.add(goalie);
-
-        const drones = [];
-        for(let i=0; i<3; i++) {
-            const d = new THREE.Mesh(new THREE.OctahedronGeometry(1.2), new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x220000 }));
-            scene.add(d); drones.push({ mesh: d, xDir: Math.random()-0.5, zDir: Math.random()-0.5 });
-        }
-
-        const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.4, 32), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x444444 }));
-        puck.position.set(0, 0.3, 0); scene.add(puck);
-
-        function resetPuck() {
-            hasPuck = false; isShooting = false;
-            puck.position.set(0, 15, 0); puckVX = 0; puckVZ = 0;
-            document.getElementById('status').innerText = 'PUCK DROPPED AT CENTER';
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            // Momentum Skating Physics
-            const accel = 0.02, friction = 0.94;
-            if(keys['KeyW'] || keys['ArrowUp']) pVelZ -= accel;
-            if(keys['KeyS'] || keys['ArrowDown']) pVelZ += accel;
-            if(keys['KeyA'] || keys['ArrowLeft']) pVelX -= accel;
-            if(keys['KeyD'] || keys['ArrowRight']) pVelX += accel;
-            
-            pVelX *= friction; pVelZ *= friction;
-            player.position.x += pVelX; player.position.z += pVelZ;
-
-            // Boundaries
-            if(Math.abs(player.position.x) > 19) { player.position.x = Math.sign(player.position.x)*19; pVelX *= -0.5; }
-            if(Math.abs(player.position.z) > 38) { player.position.z = Math.sign(player.position.z)*38; pVelZ *= -0.5; }
-
-            camera.position.lerp(new THREE.Vector3(player.position.x, 22, player.position.z + 25), 0.1);
-            camera.lookAt(player.position.x, 0, player.position.z - 10);
-
-            // Visibility Fix: Red or Bright White for high contrast
-            arenaLight.color.setHex(player.position.z < 0 ? 0xff0000 : 0xffffff);
-            arenaLight.position.x = player.position.x;
-
-            drones.forEach(d => {
-                d.mesh.position.x += 0.2*d.xDir; d.mesh.position.z += 0.2*d.zDir;
-                if(Math.abs(d.mesh.position.x) > 18) d.xDir *= -1;
-                if(Math.abs(d.mesh.position.z) > 35) d.zDir *= -1;
-                if(player.position.distanceTo(d.mesh.position) < 2.5 && hasPuck) {
-                    hasPuck = false; puck.position.set(player.position.x, 0.3, player.position.z);
-                    document.getElementById('status').innerText = 'INTERCEPTED!';
-                }
-            });
-
-            let gT = (isShooting || hasPuck) ? puck.position.x : player.position.x;
-            goalie.position.x = THREE.MathUtils.lerp(goalie.position.x, THREE.MathUtils.clamp(gT, -6, 6), 0.12);
-
-            if(puck.position.y > 0.3) puck.position.y -= 0.2;
-            if(!hasPuck && !isShooting && player.position.distanceTo(puck.position) < 2.5 && puck.position.y < 1) {
-                hasPuck = true; document.getElementById('status').innerText = 'ATTACKING';
-            }
-
-            if(keys['Space'] && hasPuck) { hasPuck = false; isShooting = true; puckVZ = -2.2; puckVX = pVelX + (Math.random()-0.5); }
-
-            if(isShooting) {
-                puck.position.z += puckVZ; puck.position.x += puckVX;
-                if(Math.abs(puck.position.x) > 19) puckVX *= -1;
-                if(puck.position.distanceTo(goalie.position) < 3.5) { resetPuck(); document.getElementById('status').innerText = 'SAVED!'; }
-                if(puck.position.z < -38 && Math.abs(puck.position.x) < 5) {
-                    score++; document.getElementById('points').innerText = score;
-                    document.getElementById('msg').style.display = 'block';
-                    arenaLight.intensity = 10; // Flash intensity
-                    setTimeout(() => { document.getElementById('msg').style.display = 'none'; arenaLight.intensity = 2; resetPuck(); }, 1500);
-                    isShooting = false; puck.position.y = -50;
-                }
-                if(puck.position.z < -60 || puck.position.z > 40) resetPuck();
-            } else if (hasPuck) {
-                puck.position.set(player.position.x, 0.3, player.position.z - 1.8);
-            }
-            renderer.render(scene, camera);
-        }
-        animate();
-    </script>
+  <noscript>Sentinel Slapshot needs JavaScript to skate.</noscript>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
